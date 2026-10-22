@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghoulish Magic Zap 3D - Piano Reload Edition</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- VexFlow 4.2.3 CDN for Music Notation -->
+    <script src="https://unpkg.com/vexflow@4.2.3/build/cjs/vexflow.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            user-select: none;
+            background-color: #05050d;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        /* Custom UI overlays */
+        .glass-panel {
+            background: rgba(15, 10, 30, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(168, 85, 247, 0.35);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
+        }
+        .glow-text-purple {
+            text-shadow: 0 0 12px rgba(168, 85, 247, 0.8), 0 0 20px rgba(168, 85, 247, 0.4);
+        }
+        .glow-text-cyan {
+            text-shadow: 0 0 12px rgba(6, 182, 212, 0.8), 0 0 20px rgba(6, 182, 212, 0.4);
+        }
+        /* Reticle Crosshair */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        /* Keyboard styling for reload activity */
+        #piano-container {
+            background: linear-gradient(180deg, #2e1052 0%, #17072c 100%);
+            border: 2px solid #a855f7;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            position: relative;
+            padding: 12px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+        }
+        #piano-keys {
+            position: relative;
+            height: 140px;
+        }
+        .pkey {
+            position: absolute;
+            top: 0;
+            border-radius: 0 0 6px 6px;
+            box-sizing: border-box;
+            cursor: pointer;
+            transition: transform 0.05s ease, filter 0.1s ease;
+        }
+        .pkey.white {
+            background: linear-gradient(180deg, #fffdf7 0%, #e2d2f9 100%);
+            border: 1px solid #9333ea;
+            z-index: 1;
+        }
+        .pkey.black {
+            background: linear-gradient(180deg, #4c1d95 0%, #1e1b4b 100%);
+            border: 1px solid #a855f7;
+            z-index: 2;
+        }
+        .pkey:active {
+            transform: translateY(3px);
+            filter: brightness(1.2);
+        }
+        .pkey-label {
+            position: absolute;
+            bottom: 6px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #7e22ce;
+            pointer-events: none;
+        }
+        .pkey.black .pkey-label {
+            color: #38bdf8;
+        }
+
+        /* Flash Feedback for Reload Activity */
+        .flash-good {
+            animation: flashGreen 0.4s ease;
+        }
+        .flash-bad {
+            animation: flashRed 0.4s ease;
+        }
+        @keyframes flashGreen {
+            0% { background-color: rgba(34, 197, 94, 0.4); }
+            100% { background-color: transparent; }
+        }
+        @keyframes flashRed {
+            0% { background-color: rgba(239, 68, 68, 0.4); }
+            100% { background-color: transparent; }
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen">
+
+    <!-- 3D Canvas Container -->
+    <div id="game-container" class="w-full h-full"></div>
+
+    <!-- FPS Reticle Crosshair -->
+    <div id="crosshair" class="w-8 h-8 flex items-center justify-center transition-transform duration-75 z-10">
+        <div class="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div>
+        <div class="absolute w-6 h-6 border border-purple-400/50 rounded-full animate-ping opacity-30"></div>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud" class="absolute top-0 left-0 w-full p-4 md:p-6 flex justify-between items-start pointer-events-none z-10">
+        <!-- Lantern Health Bar -->
+        <div class="glass-panel rounded-2xl p-3 md:p-4 flex items-center gap-3 w-56 md:w-72">
+            <i class="fa-solid fa-heart-pulse text-2xl text-rose-400 animate-pulse"></i>
+            <div class="w-full">
+                <div class="flex justify-between text-xs text-purple-200 font-bold mb-1">
+                    <span>ENERGY</span>
+                    <span id="health-text">100%</span>
+                </div>
+                <div class="w-full bg-gray-950/80 rounded-full h-3.5 p-0.5 border border-purple-800/40">
+                    <div id="health-bar" class="bg-gradient-to-r from-rose-500 via-purple-500 to-cyan-400 h-full rounded-full transition-all duration-300" style="width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bullets / Ammo & Reload Notice -->
+        <div class="glass-panel rounded-2xl px-5 py-3 flex flex-col items-center justify-center border-amber-500/50">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-xl"></i>
+                <span id="ammo-count" class="text-2xl md:text-3xl font-black text-amber-300 glow-text-purple">10</span>
+                <span class="text-xs text-amber-200/70 font-bold uppercase">SPELLS</span>
+            </div>
+            <div id="reload-prompt" class="text-[11px] text-cyan-300 font-extrabold tracking-wider mt-1 animate-pulse">
+                [SPACE / ENTER] Piano Reload
+            </div>
+        </div>
+
+        <!-- Wave & Score Display -->
+        <div class="glass-panel rounded-2xl px-5 py-3 flex gap-5 text-center">
+            <div>
+                <p class="text-[10px] tracking-wider text-purple-300 font-bold uppercase">Wave</p>
+                <p id="wave-val" class="text-2xl font-black text-cyan-300 glow-text-cyan">1</p>
+            </div>
+            <div class="w-px bg-purple-800/50 my-1"></div>
+            <div>
+                <p class="text-[10px] tracking-wider text-purple-300 font-bold uppercase">Zapped</p>
+                <p id="score-val" class="text-2xl font-black text-purple-300 glow-text-purple">0</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- RELOAD PIANO OVERLAY MODAL -->
+    <div id="reload-modal" class="hidden absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 transition-all">
+        <div id="reload-card" class="bg-slate-900/60 backdrop-blur-md p-5 md:p-6 rounded-3xl max-w-xl w-full text-center border border-purple-400/30 relative shadow-2xl">
+            
+            <div class="flex justify-between items-center mb-2">
+                <div class="flex items-center gap-2 text-cyan-300 font-bold text-xs md:text-sm">
+                    <i class="fa-solid fa-music text-purple-400"></i>
+                    <span>PIANO SPELL RECHARGE (SLOW-MOTION ACTIVE)</span>
+                </div>
+                <div class="text-[11px] bg-purple-900/40 text-purple-200 px-3 py-1 rounded-full border border-purple-400/30 font-bold">
+                    [SPACE / ENTER] Resume Game
+                </div>
+            </div>
+
+            <!-- VexFlow Staff Rendering Area (Fully Opaque Canvas for Crisp View) -->
+            <div class="bg-slate-900/95 rounded-2xl p-2 border border-purple-500/50 mb-4 flex justify-center items-center h-36 shadow-lg">
+                <div id="vexflow-staff" class="w-full flex justify-center"></div>
+            </div>
+
+            <!-- Interactive Piano Keyboard (Opaque / Solid) -->
+            <div id="piano-container" class="w-full">
+                <div id="piano-keys" class="w-full"></div>
+            </div>
+
+            <p class="text-xs text-purple-200/90 mt-3 font-semibold drop-shadow">
+                Click the note on the piano corresponding to the treble staff! <br>
+                <span class="text-green-300 font-bold">+2 Bullets</span> for correct key | <span class="text-rose-300 font-bold">-2 Bullets</span> for wrong key.
+            </p>
+        </div>
+    </div>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay" class="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/85 backdrop-blur-md transition-opacity duration-500">
+        <div class="glass-panel p-8 md:p-10 rounded-3xl max-w-lg w-11/12 text-center border-purple-500/40 shadow-2xl">
+            <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-purple-900/40 flex items-center justify-center border border-purple-400/30 shadow-[0_0_20px_rgba(168,85,247,0.4)]">
+                <i class="fa-solid fa-ghost text-4xl text-cyan-300 animate-bounce"></i>
+            </div>
+            <h1 class="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-cyan-200 to-amber-200 mb-2 glow-text-purple">
+                Ghoul Zap Corridor!
+            </h1>
+            <p class="text-purple-200 text-sm mb-6 leading-relaxed">
+                Survive <strong>6 waves</strong> of ghosts (15 per wave)! <br>
+                Waves 1–3: Cute Ghouls (2 hits) | Waves 4–6: Scarier Shadow Ghouls (4 hits)!
+            </p>
+            
+            <div class="bg-purple-950/60 p-4 rounded-xl mb-6 text-left text-xs md:text-sm text-purple-200 space-y-2 border border-purple-800/40">
+                <p><i class="fa-solid fa-mouse text-cyan-400 mr-2"></i> <strong>Aim & Zap:</strong> Click or tap to shoot spell</p>
+                <p><i class="fa-solid fa-keyboard text-amber-400 mr-2"></i> <strong>Reload:</strong> Press <strong>SPACE / ENTER</strong> to enter Translucent Slow-Motion Piano Mode</p>
+                <p><i class="fa-solid fa-music text-purple-400 mr-2"></i> <strong>Note Staff Range:</strong> Notes span <strong>E4 through F5</strong> (+2 bullets per correct note)</p>
+            </div>
+
+    <!-- Game Over / Victory Screen -->
+    <div id="game-over-overlay" class="hidden absolute inset-0 z-40 flex items-center justify-center bg-slate-950/85 backdrop-blur-md">
+        <div class="glass-panel p-8 md:p-12 rounded-3xl max-w-md w-11/12 text-center border-cyan-500/40">
+            <div id="end-icon-wrap" class="w-20 h-20 mx-auto mb-4 rounded-full bg-cyan-900/30 flex items-center justify-center border border-cyan-400/30">
+                <i id="end-icon" class="fa-solid fa-trophy text-4xl text-amber-300"></i>
+            </div>
+            <h2 id="end-title" class="text-3xl font-extrabold text-white mb-2 glow-text-cyan">VICTORY!</h2>
+            <p id="end-desc" class="text-purple-200 text-sm mb-6">You defeated all 6 ghost waves and saved the magical corridor!</p>
+            
+            <div class="bg-purple-900/30 p-4 rounded-2xl mb-6 flex justify-around border border-purple-700/30">
+                <div>
+                    <span class="block text-xs text-purple-300 font-bold uppercase">Wave Completed</span>
+                    <span id="final-wave" class="text-2xl font-black text-cyan-300">6 / 6</span>
+                </div>
+                <div class="w-px bg-purple-700/40"></div>
+                <div>
+                    <span class="block text-xs text-purple-300 font-bold uppercase">Ghouls Zapped</span>
+                    <span id="final-score" class="text-2xl font-black text-purple-300">0</span>
+                </div>
+            </div>
+
+            <button id="restart-btn" class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 text-white font-bold text-lg hover:brightness-110 transition-all shadow-[0_0_20px_rgba(6,182,212,0.5)] active:scale-95">
+                <i class="fa-solid fa-rotate-right mr-2"></i> Play Again
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN GAME SCRIPT -->
+    <script>
+        /* -------------------------------------------------------------------------- */
+        /* WEB AUDIO API SYNTHESIZER (Piano Tones & Sound FX)                         */
+        /* -------------------------------------------------------------------------- */
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playPianoPitch(freq) {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.6);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.6);
+            }
+
+            playZap() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                
+                osc.frequency.setValueAtTime(900, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.2);
+
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+
+            playGhoulHit() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+
+                osc.frequency.setValueAtTime(350, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(550, this.ctx.currentTime + 0.1);
+                osc.frequency.linearRampToValueAtTime(250, this.ctx.currentTime + 0.22);
+
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.22);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.22);
+            }
+
+            playCorrect() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc1 = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc1.type = 'sine';
+                osc2.type = 'sine';
+
+                osc1.frequency.setValueAtTime(523.25, now); // C5
+                osc2.frequency.setValueAtTime(659.25, now + 0.08); // E5
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc1.start(now);
+                osc2.start(now + 0.08);
+                osc1.stop(now + 0.35);
+                osc2.stop(now + 0.35);
+            }
+
+            playWrong() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(110, this.ctx.currentTime + 0.25);
+
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playDamage() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+
+                osc.frequency.setValueAtTime(130, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + 0.3);
+
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+        }
+
+        const sfx = new SoundFX();
+
+        /* -------------------------------------------------------------------------- */
+        /* GAME CONFIG & STATE                                                        */
+        /* -------------------------------------------------------------------------- */
+        const CORRIDOR_LENGTH = 70;
+        const CORRIDOR_WIDTH = 12;
+        const CORRIDOR_HEIGHT = 10;
+
+        let scene, camera, renderer;
+        let wandGroup, wandTipPoint;
+        let ghouls = [];
+        let spellProjectiles = [];
+        let particles = [];
+        let torchLights = [];
+
+        let isGameActive = false;
+        let isReloading = false; // Toggle state for Piano Reload activity
+        let timeDilation = 1.0;  // Dilation factor (1.0 = normal, 0.05 = super slow motion)
+
+        let health = 100;
+        let ammo = 10;
+        let score = 0;
+        let wave = 1;
+        let ghoulsSpawnedInWave = 0;
+        let totalGhoulsInWave = 5;
+        let spawnTimer = 0;
+
+        // Camera / Aiming variables
+        let targetRotationX = 0, targetRotationY = 0;
+
+        /* -------------------------------------------------------------------------- */
+        /* PIANO & VEXFLOW TREBLE CLEF RELOAD SYSTEM                                   */
+        /* -------------------------------------------------------------------------- */
+        // Restricted target note pool: strictly E4 up to F5
+        const TREBLE_NOTES = [
+            'E4', 'F4', 'G4', 'A4', 'B4', 
+            'C5', 'D5', 'E5', 'F5'
+        ];
+
+        const CHROMATIC_KEYBOARD = [
+            { name: 'C4', letter: 'C', octave: 4, type: 'white' },
+            { name: 'C#4', letter: 'C#', octave: 4, type: 'black' },
+            { name: 'D4', letter: 'D', octave: 4, type: 'white' },
+            { name: 'D#4', letter: 'D#', octave: 4, type: 'black' },
+            { name: 'E4', letter: 'E', octave: 4, type: 'white' },
+            { name: 'F4', letter: 'F', octave: 4, type: 'white' },
+            { name: 'F#4', letter: 'F#', octave: 4, type: 'black' },
+            { name: 'G4', letter: 'G', octave: 4, type: 'white' },
+            { name: 'G#4', letter: 'G#', octave: 4, type: 'black' },
+            { name: 'A4', letter: 'A', octave: 4, type: 'white' },
+            { name: 'A#4', letter: 'A#', octave: 4, type: 'black' },
+            { name: 'B4', letter: 'B', octave: 4, type: 'white' },
+            { name: 'C5', letter: 'C', octave: 5, type: 'white' },
+            { name: 'C#5', letter: 'C#', octave: 5, type: 'black' },
+            { name: 'D5', letter: 'D', octave: 5, type: 'white' },
+            { name: 'D#5', letter: 'D#', octave: 5, type: 'black' },
+            { name: 'E5', letter: 'E', octave: 5, type: 'white' },
+            { name: 'F5', letter: 'F', octave: 5, type: 'white' },
+            { name: 'F#5', letter: 'F#', octave: 5, type: 'black' },
+            { name: 'G5', letter: 'G', octave: 5, type: 'white' }
+        ];
+
+        let currentTargetNote = 'E4';
+        function noteToFreq(name) {
+            const NOTE_LETTERS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+            const m = name.match(/^([A-G]#?)(\d)$/);
+            const letter = m[1], octave = parseInt(m[2], 10);
+            const midi = (octave + 1) * 12 + NOTE_LETTERS.indexOf(letter);
+            return 440 * Math.pow(2, (midi - 69) / 12);
+        }
+
+        function renderKeyboard() {
+            const keysWrap = document.getElementById('piano-keys');
+            keysWrap.innerHTML = '';
+
+            const WHITE_W = 38;
+            const WHITE_SPACING = 40;
+            const BLACK_W = 22;
+            const BLACK_OFFSET = 28;
+
+            let whiteX = 0;
+            let lastWhiteX = 0;
+
+            const laidOutKeys = CHROMATIC_KEYBOARD.map(k => {
+                if (k.type === 'white') {
+                    const pos = whiteX;
+                    lastWhiteX = whiteX;
+                    whiteX += WHITE_SPACING;
+                    return { ...k, pos };
+                } else {
+                    return { ...k, pos: lastWhiteX + BLACK_OFFSET };
+                }
+            });
+
+            keysWrap.style.width = whiteX + 'px';
+
+            laidOutKeys.forEach(k => {
+                const el = document.createElement('div');
+                el.className = `pkey ${k.type}`;
+                el.style.left = `${k.pos}px`;
+                el.style.width = `${k.type === 'white' ? WHITE_W : BLACK_W}px`;
+                el.style.height = `${k.type === 'white' ? 130 : 80}px`;
+
+                if (k.name === 'C4') {
+                    const label = document.createElement('div');
+                    label.className = 'pkey-label';
+                    label.textContent = 'Middle C';
+                    el.appendChild(label);
+                } else if (k.type === 'white') {
+                    const label = document.createElement('div');
+                    label.className = 'pkey-label';
+                    label.textContent = k.name;
+                    el.appendChild(label);
+                }
+
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    handlePianoKeyClick(k.name);
+                });
+
+                keysWrap.appendChild(el);
+            });
+        }
+
+        function renderVexFlowStaff(noteName) {
+            const container = document.getElementById('vexflow-staff');
+            container.innerHTML = '';
+
+            const VF = Vex.Flow;
+            const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+            renderer.resize(260, 140);
+            const context = renderer.getContext();
+            context.setFont("Arial", 10, "").setBackgroundFillStyle("#eeddff");
+            context.setFillStyle('#e9d5ff');
+            context.setStrokeStyle('#e9d5ff');
+
+            const stave = new VF.Stave(10, 15, 230);
+            stave.addClef('treble');
+            stave.setContext(context).draw();
+
+            const noteKey = noteName[0].toLowerCase() + '/' + noteName[1];
+            const staveNote = new VF.StaveNote({
+                clef: 'treble',
+                keys: [noteKey],
+                duration: 'q'
+            });
+
+            staveNote.setStyle({ fillStyle: '#38bdf8', strokeStyle: '#38bdf8' });
+
+            VF.Formatter.FormatAndDraw(context, stave, [staveNote]);
+        }
+
+        function pickNextNote() {
+            const available = TREBLE_NOTES.filter(n => n !== currentTargetNote);
+            currentTargetNote = available[Math.floor(Math.random() * available.length)];
+            renderVexFlowStaff(currentTargetNote);
+        }
+
+        function handlePianoKeyClick(clickedNote) {
+            if (!isReloading) return;
+
+            sfx.playPianoPitch(noteToFreq(clickedNote));
+
+            const card = document.getElementById('reload-card');
+
+            if (clickedNote === currentTargetNote) {
+                sfx.playCorrect();
+                ammo += 2;
+                updateHUD();
+
+                card.classList.remove('flash-bad');
+                card.classList.add('flash-good');
+                setTimeout(() => card.classList.remove('flash-good'), 400);
+
+                pickNextNote();
+            } else {
+                sfx.playWrong();
+                ammo = Math.max(0, ammo - 2);
+                updateHUD();
+
+                card.classList.remove('flash-good');
+                card.classList.add('flash-bad');
+                setTimeout(() => card.classList.remove('flash-bad'), 400);
+            }
+        }
+
+        function toggleReloadModal() {
+            if (!isGameActive) return;
+
+            isReloading = !isReloading;
+            const modal = document.getElementById('reload-modal');
+
+            if (isReloading) {
+                timeDilation = 0.05; // Slow-mo active
+                document.exitPointerLock?.();
+                modal.classList.remove('hidden');
+                pickNextNote();
+            } else {
+                timeDilation = 1.0; // Normal speed
+                modal.classList.add('hidden');
+                document.body.requestPointerLock?.();
+            }
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* GAME CONFIG & STATE                                                        */
+        /* -------------------------------------------------------------------------- */
+        const CORRIDOR_LENGTH = 70;
+        const CORRIDOR_WIDTH = 12;
+        const CORRIDOR_HEIGHT = 10;
+        const TOTAL_WAVES = 6;
+        const GHOULS_PER_WAVE = 15; // 15 ghosts per wave
+
+        let scene, camera, renderer;
+        let wandGroup, wandTipPoint;
+        let ghouls = [];
+        let spellProjectiles = [];
+        let particles = [];
+        let torchLights = [];
+
+        let isGameActive = false;
+        let isReloading = false;
+        let timeDilation = 1.0;
+
+        let health = 100;
+        let ammo = 10;
+        let score = 0;
+        let wave = 1;
+        let ghoulsSpawnedInWave = 0;
+        let totalGhoulsInWave = GHOULS_PER_WAVE;
+        let spawnTimer = 0;
+
+        // Camera / Aiming variables
+        let targetRotationX = 0, targetRotationY = 0;
+                for (let j = 0; j <= cols + 1; j++) {
+                    ctx.beginPath();
+                    ctx.moveTo(j * cw - offset, i * rh);
+                    ctx.lineTo(j * cw - offset, (i + 1) * rh);
+                    ctx.stroke();
+                }
+            }
+
+            for (let i = 0; i < 3000; i++) {
+                const x = Math.random() * 512;
+                const y = Math.random() * 512;
+                const shade = Math.random() * 30;
+                ctx.fillStyle = `rgba(${shade + 40}, ${shade + 20}, ${shade + 60}, 0.12)`;
+                ctx.fillRect(x, y, 3, 3);
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* PROCEDURAL ENEMY GENERATION (Waves 1-3 Cute, Waves 4-6 Scarier Shadow)    */
+        /* -------------------------------------------------------------------------- */
+        function createCuteGhoul() {
+            const ghoulGroup = new THREE.Group();
+            const isScaryPhase = wave >= 4;
+
+            let mainColor, eyeColor, requiredHits, baseSpeed;
+
+            if (isScaryPhase) {
+                // Scarier Ghost Palette: Ethereal Shadow Dark Purple / Crimson
+                mainColor = 0x1f1135;
+                eyeColor = 0xef4444; // Crimson glowing eyes
+                requiredHits = 4;    // 4 hits to defeat scarier ghosts
+                baseSpeed = 0.0825 + (wave - 3) * 0.01; // 1.5x speed boost
+            } else {
+                // Waves 1-3 Playful Colors
+                const colors = [
+                    { main: 0x9333ea, eye: 0x22d3ee },
+                    { main: 0x0284c7, eye: 0x4ade80 },
+                    { main: 0x059669, eye: 0xfacc15 },
+                    { main: 0xc084fc, eye: 0xf43f5e }
+                ];
+                const theme = colors[Math.floor(Math.random() * colors.length)];
+                mainColor = theme.main;
+                eyeColor = theme.eye;
+                requiredHits = 2;   // 2 hits to defeat cute ghosts
+                baseSpeed = 0.0825 + wave * 0.008; // 1.5x speed boost
+            }
+
+            // Ghost Body
+            const bodyGeo = new THREE.SphereGeometry(0.9, 16, 16);
+            bodyGeo.scale(1, 1.35, 0.9);
+            const bodyMat = new THREE.MeshStandardMaterial({
+                color: mainColor,
+                roughness: 0.2,
+                transparent: true,
+                opacity: isScaryPhase ? 0.82 : 0.92,
+                emissive: isScaryPhase ? 0x450a0a : mainColor,
+                emissiveIntensity: isScaryPhase ? 0.35 : 0.2
+            });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 1.2;
+            ghoulGroup.add(body);
+
+            // Scarier Horns / Spiky Crown for Phase 2 Ghouls
+            if (isScaryPhase) {
+                const hornGeo = new THREE.ConeGeometry(0.18, 0.65, 8);
+                const hornMat = new THREE.MeshStandardMaterial({ color: 0x3f0713, roughness: 0.3 });
+
+                const leftHorn = new THREE.Mesh(hornGeo, hornMat);
+                leftHorn.position.set(-0.45, 2.1, 0.1);
+                leftHorn.rotation.z = -Math.PI / 8;
+                ghoulGroup.add(leftHorn);
+
+                const rightHorn = new THREE.Mesh(hornGeo, hornMat);
+                rightHorn.position.set(0.45, 2.1, 0.1);
+                rightHorn.rotation.z = Math.PI / 8;
+                ghoulGroup.add(rightHorn);
+            }
+
+            // Glowing Eyes
+            const eyeGeo = new THREE.SphereGeometry(isScaryPhase ? 0.24 : 0.22, 12, 12);
+            const eyeMat = new THREE.MeshBasicMaterial({ color: eyeColor });
+
+            const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+            leftEye.position.set(-0.3, 1.4, 0.72);
+            ghoulGroup.add(leftEye);
+
+            const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+            rightEye.position.set(0.3, 1.4, 0.72);
+            ghoulGroup.add(rightEye);
+
+            // Pupils
+            const pupilGeo = new THREE.SphereGeometry(isScaryPhase ? 0.08 : 0.1, 8, 8);
+            const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+            const leftPupil = new THREE.Mesh(pupilGeo, pupilMat);
+            leftPupil.position.set(-0.3, 1.4, 0.88);
+            ghoulGroup.add(leftPupil);
+
+            const rightPupil = new THREE.Mesh(pupilGeo, pupilMat);
+            rightPupil.position.set(0.3, 1.4, 0.88);
+            ghoulGroup.add(rightPupil);
+
+            // Mouth
+            const mouthGeo = new THREE.TorusGeometry(isScaryPhase ? 0.18 : 0.15, 0.05, 8, 12, Math.PI);
+            const mouthMat = new THREE.MeshBasicMaterial({ color: 0x050510 });
+            const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+            mouth.position.set(0, 1.05, 0.82);
+            mouth.rotation.x = isScaryPhase ? 0 : Math.PI; // Scarier mouth frown
+            ghoulGroup.add(mouth);
+
+            // Arms
+            const armGeo = new THREE.SphereGeometry(0.25, 12, 12);
+            armGeo.scale(0.8, 1.8, 0.8);
+            const leftArm = new THREE.Mesh(armGeo, bodyMat);
+            leftArm.position.set(-1.0, 1.1, 0.1);
+            leftArm.rotation.z = Math.PI / 6;
+            ghoulGroup.add(leftArm);
+
+            const rightArm = new THREE.Mesh(armGeo, bodyMat);
+            rightArm.position.set(1.0, 1.1, 0.1);
+            rightArm.rotation.z = -Math.PI / 6;
+            ghoulGroup.add(rightArm);
+
+            // Feet
+            const footGeo = new THREE.SphereGeometry(0.25, 10, 10);
+            const leftFoot = new THREE.Mesh(footGeo, bodyMat);
+            leftFoot.position.set(-0.35, 0.25, 0);
+            ghoulGroup.add(leftFoot);
+
+            const rightFoot = new THREE.Mesh(footGeo, bodyMat);
+            rightFoot.position.set(0.35, 0.25, 0);
+            ghoulGroup.add(rightFoot);
+
+            // Spawn Location
+            const spawnX = (Math.random() - 0.5) * (CORRIDOR_WIDTH - 3.5);
+            const spawnZ = -CORRIDOR_LENGTH + 8;
+            ghoulGroup.position.set(spawnX, 0, spawnZ);
+
+            const ghoulObj = {
+                mesh: ghoulGroup,
+                leftArm, rightArm, leftFoot, rightFoot,
+                speed: baseSpeed,
+                animOffset: Math.random() * 100,
+                health: requiredHits,
+                isScary: isScaryPhase,
+                hitTimer: 0
+            };
+
+            scene.add(ghoulGroup);
+            ghouls.push(ghoulObj);
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* SPELL SHOOTING & PARTICLES                                                 */
+        /* -------------------------------------------------------------------------- */
+        function castSpell() {
+            if (!isGameActive || isReloading) return;
+
+            // Check Bullets/Ammo
+            if (ammo <= 0) {
+                sfx.playWrong();
+                // Flash HUD reload prompt
+                const prompt = document.getElementById('reload-prompt');
+                prompt.classList.add('scale-125', 'text-amber-400');
+                setTimeout(() => prompt.classList.remove('scale-125', 'text-amber-400'), 200);
+                return;
+            }
+
+            ammo--;
+            updateHUD();
+            sfx.playZap();
+
+            wandGroup.position.z = -0.5;
+            wandGroup.rotation.x = -0.2;
+
+            const spellGroup = new THREE.Group();
+
+            const tipWorldPos = new THREE.Vector3();
+            wandTipPoint.getWorldPosition(tipWorldPos);
+            spellGroup.position.copy(tipWorldPos);
+
+            const orbGeo = new THREE.SphereGeometry(0.28, 12, 12);
+            const orbMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+            const orb = new THREE.Mesh(orbGeo, orbMat);
+            spellGroup.add(orb);
+
+            const bubbleGeo = new THREE.SphereGeometry(0.45, 12, 12);
+            const bubbleMat = new THREE.MeshStandardMaterial({
+                color: 0xc084fc,
+                transparent: true,
+                opacity: 0.6,
+                roughness: 0.1,
+                emissive: 0xa855f7,
+                emissiveIntensity: 0.8
+            });
+            const bubble = new THREE.Mesh(bubbleGeo, bubbleMat);
+            spellGroup.add(bubble);
+
+            const pLight = new THREE.PointLight(0x38bdf8, 2, 8);
+            spellGroup.add(pLight);
+
+            const dir = new THREE.Vector3(0, 0, -1);
+            dir.applyQuaternion(camera.quaternion);
+
+            scene.add(spellGroup);
+
+            spellProjectiles.push({
+                mesh: spellGroup,
+                direction: dir,
+                speed: 0.95,
+                life: 0
+            });
+        }
+
+        function createSparkles(pos, colorHex) {
+            const particleCount = 16;
+            const pGeo = new THREE.SphereGeometry(0.08, 6, 6);
+            const pMat = new THREE.MeshBasicMaterial({ color: colorHex });
+
+            for (let i = 0; i < particleCount; i++) {
+                const p = new THREE.Mesh(pGeo, pMat);
+                p.position.copy(pos);
+
+                const velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.3,
+                    (Math.random() - 0.5) * 0.3 + 0.1,
+                    (Math.random() - 0.5) * 0.3
+                );
+
+                scene.add(p);
+                particles.push({ mesh: p, vel: velocity, life: 1.0 });
+            }
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* INPUT & CONTROLS                                                           */
+        /* -------------------------------------------------------------------------- */
+        function setupControls() {
+            document.getElementById('start-btn').addEventListener('click', startGame);
+            document.getElementById('restart-btn').addEventListener('click', restartGame);
+
+            // Mouse Look Controls
+            window.addEventListener('mousemove', (e) => {
+                if (!isGameActive || isReloading) return;
+
+                if (document.pointerLockElement === document.body) {
+                    targetRotationY -= e.movementX * 0.0025;
+                    targetRotationX -= e.movementY * 0.0025;
+                } else {
+                    const cx = window.innerWidth / 2;
+                    const cy = window.innerHeight / 2;
+                    targetRotationY = -((e.clientX - cx) / cx) * 0.6;
+                    targetRotationX = -((e.clientY - cy) / cy) * 0.4;
+                }
+
+                targetRotationX = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, targetRotationX));
+            });
+
+            // Tap / Click shoot logic
+            window.addEventListener('mousedown', (e) => {
+                if (isGameActive && !isReloading && e.button === 0) {
+                    castSpell();
+                }
+            });
+
+            // Keyboard Shortcuts (Enter / Spacebar for Reload toggle)
+            window.addEventListener('keydown', (e) => {
+                if (!isGameActive) return;
+
+                if (e.code === 'Space' || e.code === 'Enter') {
+                    e.preventDefault();
+                    toggleReloadModal();
+                }
+            });
+        }
+
+        function startGame() {
+            sfx.init();
+            document.getElementById('start-overlay').classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                document.getElementById('start-overlay').classList.add('hidden');
+            }, 500);
+
+            document.body.requestPointerLock?.();
+            isGameActive = true;
+            resetGameState();
+        }
+
+        function restartGame() {
+            document.getElementById('game-over-overlay').classList.add('hidden');
+            document.body.requestPointerLock?.();
+            isGameActive = true;
+            resetGameState();
+        }
+
+        function resetGameState() {
+            health = 100;
+            ammo = 10;
+            score = 0;
+            wave = 1;
+            ghoulsSpawnedInWave = 0;
+            totalGhoulsInWave = GHOULS_PER_WAVE;
+            isReloading = false;
+            timeDilation = 1.0;
+
+            document.getElementById('reload-modal').classList.add('hidden');
+
+            ghouls.forEach(g => scene.remove(g.mesh));
+            spellProjectiles.forEach(s => scene.remove(s.mesh));
+            particles.forEach(p => scene.remove(p.mesh));
+            ghouls = [];
+            spellProjectiles = [];
+            particles = [];
+
+            updateHUD();
+        }
+
+        function triggerWinScreen() {
+            isGameActive = false;
+            document.exitPointerLock?.();
+            document.getElementById('reload-modal').classList.add('hidden');
+
+            document.getElementById('end-icon-wrap').className = 'w-20 h-20 mx-auto mb-4 rounded-full bg-amber-900/30 flex items-center justify-center border border-amber-400/40 shadow-[0_0_20px_rgba(245,158,11,0.5)]';
+            document.getElementById('end-icon').className = 'fa-solid fa-crown text-4xl text-amber-300 animate-bounce';
+            document.getElementById('end-title').innerText = 'CORRIDOR CONQUERED!';
+            document.getElementById('end-desc').innerText = 'Congratulations! You survived all 6 waves and banished the ghouls!';
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('final-wave').innerText = '6 / 6';
+
+            document.getElementById('game-over-overlay').classList.remove('hidden');
+        }
+
+        function gameOver() {
+            isGameActive = false;
+            document.exitPointerLock?.();
+            document.getElementById('reload-modal').classList.add('hidden');
+
+            document.getElementById('end-icon-wrap').className = 'w-20 h-20 mx-auto mb-4 rounded-full bg-rose-900/30 flex items-center justify-center border border-rose-400/30';
+            document.getElementById('end-icon').className = 'fa-solid fa-skull text-4xl text-rose-400';
+            document.getElementById('end-title').innerText = 'GAME OVER';
+            document.getElementById('end-desc').innerText = 'The ghosts reached you! Re-charge your magic wand and try again.';
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('final-wave').innerText = `${wave} / ${TOTAL_WAVES}`;
+
+            document.getElementById('game-over-overlay').classList.remove('hidden');
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* GAME LOOP                                                                  */
+        /* -------------------------------------------------------------------------- */
+        function animate(time) {
+            requestAnimationFrame(animate);
+
+            // Apply Dilation (Slow motion during translucent piano reload activity)
+            const delta = 0.016 * timeDilation;
+
+            // Camera Aiming Smoothing
+            camera.rotation.y += (targetRotationY - camera.rotation.y) * 0.1;
+            camera.rotation.x += (targetRotationX - camera.rotation.x) * 0.1;
+
+            // Wand Idle Animation
+            if (wandGroup) {
+                wandGroup.position.z += (-0.7 - wandGroup.position.z) * 0.1;
+                wandGroup.rotation.x += (0 - wandGroup.rotation.x) * 0.1;
+                wandGroup.position.y = -0.45 + Math.sin(time * 0.003) * 0.02;
+            }
+
+            // Torches flickering
+            torchLights.forEach(t => {
+                t.light.intensity = t.baseIntensity + Math.sin(time * 0.01 + t.seed) * 0.25;
+            });
+
+            if (isGameActive) {
+                // Wave Spawning (15 ghosts per wave)
+                spawnTimer += delta;
+                if (spawnTimer > 1.4 && ghoulsSpawnedInWave < totalGhoulsInWave) {
+                    createCuteGhoul();
+                    ghoulsSpawnedInWave++;
+                    spawnTimer = 0;
+                }
+
+                // Check Wave Progression (6 Waves total)
+                if (ghoulsSpawnedInWave >= totalGhoulsInWave && ghouls.length === 0) {
+                    if (wave >= TOTAL_WAVES) {
+                        triggerWinScreen();
+                        return;
+                    } else {
+                        wave++;
+                        ghoulsSpawnedInWave = 0;
+                        totalGhoulsInWave = GHOULS_PER_WAVE;
+                        updateHUD();
+                    }
+                }
+
+                // Projectiles Update
+                for (let i = spellProjectiles.length - 1; i >= 0; i--) {
+                    const sp = spellProjectiles[i];
+                    sp.mesh.position.addScaledVector(sp.direction, sp.speed * (timeDilation < 1.0 ? 0.3 : 1.0));
+                    sp.life += 0.016;
+
+                    let hit = false;
+                    for (let j = ghouls.length - 1; j >= 0; j--) {
+                        const ghoul = ghouls[j];
+                        const dist = sp.mesh.position.distanceTo(ghoul.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0)));
+
+                        if (dist < 1.2) {
+                            hit = true;
+                            ghoul.health--;
+                            ghoul.hitTimer = 0.2;
+
+                            sfx.playGhoulHit();
+                            createSparkles(sp.mesh.position, ghoul.isScary ? 0xef4444 : 0x38bdf8);
+
+                            // Defeated logic
+                            if (ghoul.health <= 0) {
+                                createSparkles(ghoul.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0)), ghoul.isScary ? 0xef4444 : 0xa855f7);
+                                scene.remove(ghoul.mesh);
+                                ghouls.splice(j, 1);
+                                score += ghoul.isScary ? 25 : 10;
+                                updateHUD();
+                            }
+                            break;
+                        }
+                    }
+
+                    if (hit || sp.life > 2.5) {
+                        scene.remove(sp.mesh);
+                        spellProjectiles.splice(i, 1);
+                    }
+                }
+
+                // Ghouls Update (1.5x Speed & Motion)
+                for (let i = ghouls.length - 1; i >= 0; i--) {
+                    const g = ghouls[i];
+
+                    // Movement forward (1.5x faster speed, scaled by slow-mo timeDilation during reload)
+                    g.mesh.position.z += g.speed * timeDilation;
+
+                    // Wobbly Walking Animation
+                    const animTime = (time * 0.008 + g.animOffset);
+                    g.mesh.position.y = Math.sin(animTime * 2) * 0.22;
+                    g.mesh.rotation.z = Math.sin(animTime) * 0.12;
+
+                    g.leftArm.rotation.z = Math.PI / 6 + Math.sin(animTime * 2) * 0.25;
+                    g.rightArm.rotation.z = -Math.PI / 6 - Math.sin(animTime * 2) * 0.25;
+
+                    g.leftFoot.position.z = Math.sin(animTime * 3) * 0.22;
+                    g.rightFoot.position.z = -Math.sin(animTime * 3) * 0.22;
+
+                    // Hit recoil scale
+                    if (g.hitTimer > 0) {
+                        g.hitTimer -= delta;
+                        g.mesh.scale.set(1.25, 0.75, 1.25);
+                    } else {
+                        g.mesh.scale.set(1, 1, 1);
+                    }
+
+                    // Damage Player when ghoul reaches camera
+                    if (g.mesh.position.z >= camera.position.z - 1.5) {
+                        sfx.playDamage();
+                        health -= g.isScary ? 22 : 15;
+                        updateHUD();
+
+                        createSparkles(g.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf59e0b);
+                        scene.remove(g.mesh);
+                        ghouls.splice(i, 1);
+
+                        if (health <= 0) {
+                            gameOver();
+                        }
+                    }
+                }
+
+                // Particles Update
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.mesh.position.add(p.vel);
+                    p.life -= 0.04;
+                    p.mesh.scale.multiplyScalar(0.92);
+
+                    if (p.life <= 0) {
+                        scene.remove(p.mesh);
+                        particles.splice(i, 1);
+                    }
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
