@@ -144,7 +144,7 @@
             <div class="flex justify-between items-center mb-2">
                 <div class="flex items-center gap-2 text-cyan-300 font-bold text-xs md:text-sm">
                     <i class="fa-solid fa-music text-purple-400"></i>
-                    <span>PIANO SPELL RECHARGE (SLOW-MOTION ACTIVE)</span>
+                    <span>PIANO SPELL RECHARGE (CHALLENGE SLOW-MOTION)</span>
                 </div>
                 <div class="text-[11px] bg-purple-900/40 text-purple-200 px-3 py-1 rounded-full border border-purple-400/30 font-bold">
                     [SPACE / ENTER] Resume Game
@@ -172,13 +172,14 @@
                 Ghoul Zap Corridor!
             </h1>
             <p class="text-purple-200 text-sm mb-6 leading-relaxed">
-                Survive <strong>6 waves</strong> of ghosts (15 per wave)! <br>
-                Waves 1–3: Cute Ghouls (1 hit) | Waves 4–6: Scarier Shadow Ghouls (2 hits)!
+                Survive <strong>6 waves</strong> of monsters! <br>
+                Waves 1–3: Cute Ghouls | Waves 4–5: Shadow Ghouls <br>
+                <strong>Wave 6: Unspeakable Bizarre Walking Horror Monsters!</strong>
             </p>
 
             <div class="bg-purple-950/60 p-4 rounded-xl mb-6 text-left text-xs md:text-sm text-purple-200 space-y-2 border border-purple-800/40">
-                <p><i class="fa-solid fa-mouse text-cyan-400 mr-2"></i> <strong>Aim &amp; Zap:</strong> Click or tap to shoot spell</p>
-                <p><i class="fa-solid fa-keyboard text-amber-400 mr-2"></i> <strong>Reload:</strong> Press <strong>SPACE / ENTER</strong> to enter Translucent Slow-Motion Piano Mode</p>
+                <p><i class="fa-solid fa-mouse text-cyan-400 mr-2"></i> <strong>Aim &amp; Zap:</strong> Click or tap to shoot glowing spells that illuminate the hallway!</p>
+                <p><i class="fa-solid fa-keyboard text-amber-400 mr-2"></i> <strong>Reload:</strong> Press <strong>SPACE / ENTER</strong> for Piano Mode (Enemies continue moving!)</p>
                 <p><i class="fa-solid fa-music text-purple-400 mr-2"></i> <strong>Note Staff Range:</strong> Notes span <strong>E4 through F5</strong> (+2 bullets per correct note)</p>
             </div>
 
@@ -195,7 +196,7 @@
                 <i id="end-icon" class="fa-solid fa-trophy text-4xl text-amber-300"></i>
             </div>
             <h2 id="end-title" class="text-3xl font-extrabold text-white mb-2 glow-text-cyan">VICTORY!</h2>
-            <p id="end-desc" class="text-purple-200 text-sm mb-6">You defeated all 6 ghost waves and saved the magical corridor!</p>
+            <p id="end-desc" class="text-purple-200 text-sm mb-6">You defeated all 6 waves and saved the magical corridor!</p>
 
             <div class="bg-purple-900/30 p-4 rounded-2xl mb-6 flex justify-around border border-purple-700/30">
                 <div>
@@ -204,7 +205,7 @@
                 </div>
                 <div class="w-px bg-purple-700/40"></div>
                 <div>
-                    <span class="block text-xs text-purple-300 font-bold uppercase">Ghouls Zapped</span>
+                    <span class="block text-xs text-purple-300 font-bold uppercase">Monsters Zapped</span>
                     <span id="final-score" class="text-2xl font-black text-purple-300">0</span>
                 </div>
             </div>
@@ -344,7 +345,6 @@
         let spellProjectiles = [];
         let particles = [];
         let torchLights = [];
-        let spellLights = [];
 
         let isGameActive = false;
         let isReloading = false;
@@ -508,7 +508,7 @@
             const modal = document.getElementById('reload-modal');
 
             if (isReloading) {
-                timeDilation = 0.05;
+                timeDilation = 0.38; // Faster enemy speed during note-reading mode
                 document.exitPointerLock?.();
                 modal.classList.remove('hidden');
                 pickNextNote();
@@ -531,7 +531,7 @@
             scene.fog = new THREE.FogExp2(0x05050f, 0.022);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.rotation.order = 'YXZ'; // avoids camera roll when looking around
+            camera.rotation.order = 'YXZ';
             camera.position.set(0, 1.6, 0);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -545,11 +545,6 @@
 
             const ambient = new THREE.AmbientLight(0x3b0764, 0.4);
             scene.add(ambient);
-            for (let i = 0; i < 3; i++) {
-                const l = new THREE.PointLight(0x38bdf8, 0, 8); // starts switched off
-                scene.add(l);
-                spellLights.push(l);
-            }
 
             window.addEventListener('resize', onWindowResize);
             requestAnimationFrame(animate);
@@ -683,7 +678,7 @@
         }
 
         /* -------------------------------------------------------------------------- */
-        /* MAGIC WAND CREATION                                                        */
+        /* MAGIC WAND CREATION (ORB REMOVED, TIP MARKER RETAINED)                    */
         /* -------------------------------------------------------------------------- */
         function buildMagicWand() {
             wandGroup = new THREE.Group();
@@ -698,22 +693,10 @@
             handle.rotation.x = Math.PI / 3;
             wandGroup.add(handle);
 
-            const orbGeo = new THREE.SphereGeometry(0.08, 16, 16);
-            const orbMat = new THREE.MeshStandardMaterial({
-                color: 0x38bdf8,
-                emissive: 0x38bdf8,
-                emissiveIntensity: 0.8,
-                roughness: 0.1
-            });
-            const orb = new THREE.Mesh(orbGeo, orbMat);
-            orb.position.set(0, 0.35, -0.22);
-            wandGroup.add(orb);
-
-            const orbLight = new THREE.PointLight(0x38bdf8, 1.5, 5);
-            orbLight.position.copy(orb.position);
-            wandGroup.add(orbLight);
-
-            wandTipPoint = orb;
+            // Tip reference point for firing spells (no visible floating mesh)
+            wandTipPoint = new THREE.Object3D();
+            wandTipPoint.position.set(0, 0.35, -0.22);
+            wandGroup.add(wandTipPoint);
 
             wandGroup.position.set(0.35, -0.45, -0.7);
             camera.add(wandGroup);
@@ -734,9 +717,11 @@
         /* -------------------------------------------------------------------------- */
         /* PROCEDURAL ENEMY GENERATION                                                */
         /* -------------------------------------------------------------------------- */
+
+        // Standard Ghouls (Waves 1 to 5)
         function createCuteGhoul() {
             const ghoulGroup = new THREE.Group();
-            const isScaryPhase = wave >= 4;
+            const isScaryPhase = wave === 4 || wave === 5;
 
             let mainColor, eyeColor, requiredHits, baseSpeed;
 
@@ -744,7 +729,7 @@
                 mainColor = 0x1f1135;
                 eyeColor = 0xef4444;
                 requiredHits = 2;
-                baseSpeed = (0.0825 + (wave - 3) * 0.01) ; 
+                baseSpeed = 0.0825 + (wave - 3) * 0.01; 
             } else {
                 const colors = [
                     { main: 0x9333ea, eye: 0x22d3ee },
@@ -756,7 +741,7 @@
                 mainColor = theme.main;
                 eyeColor = theme.eye;
                 requiredHits = 1;
-                baseSpeed = (0.0825 + wave * 0.008) ; 
+                baseSpeed = 0.0825 + wave * 0.008; 
             }
 
             const bodyGeo = new THREE.SphereGeometry(0.9, 16, 16);
@@ -843,6 +828,7 @@
             ghoulGroup.position.set(spawnX, 0, spawnZ);
 
             const ghoulObj = {
+                type: 'ghost',
                 mesh: ghoulGroup,
                 leftArm, rightArm, leftFoot, rightFoot,
                 speed: baseSpeed,
@@ -856,8 +842,155 @@
             ghouls.push(ghoulObj);
         }
 
+        // Wave 6 Bizarre Walking Monsters
+        function createWave6BizarreMonster() {
+            const monsterType = Math.floor(Math.random() * 3); // 0: Spindle Stalker, 1: Bloat Crawler, 2: Jittering Specter
+            const group = new THREE.Group();
+
+            let speed, health, points, hitColor, enemyKind;
+            let animatedParts = {};
+
+            if (monsterType === 0) {
+                // TYPE 1: Spindle Stalker (Tall, skinny, fast, twitchy limbs)
+                enemyKind = 'spindle';
+                speed = 0.15; // Fast speed
+                health = 2;
+                points = 35;
+                hitColor = 0xa855f7;
+
+                const bodyMat = new THREE.MeshStandardMaterial({ color: 0x111122, roughness: 0.3, metalness: 0.8 });
+                const eyeMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+
+                // Tall elongated torso
+                const torsoGeo = new THREE.CylinderGeometry(0.18, 0.1, 2.8, 8);
+                const torso = new THREE.Mesh(torsoGeo, bodyMat);
+                torso.position.y = 1.6;
+                group.add(torso);
+
+                // Small creepy head with single glowing eye
+                const headGeo = new THREE.SphereGeometry(0.28, 12, 12);
+                const head = new THREE.Mesh(headGeo, bodyMat);
+                head.position.set(0, 3.1, 0);
+                group.add(head);
+
+                const eyeGeo = new THREE.SphereGeometry(0.12, 8, 8);
+                const eye = new THREE.Mesh(eyeGeo, eyeMat);
+                eye.position.set(0, 3.1, 0.22);
+                group.add(eye);
+
+                // 4 Long thin jointed walking legs touching the floor
+                const legGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.8, 6);
+                const legs = [];
+                for (let i = 0; i < 4; i++) {
+                    const leg = new THREE.Mesh(legGeo, bodyMat);
+                    leg.position.y = 0.9;
+                    group.add(leg);
+                    legs.push(leg);
+                }
+
+                animatedParts = { torso, head, legs };
+
+            } else if (monsterType === 1) {
+                // TYPE 2: Bloat Crawler (Wide, bulky, low-slung, multi-legged grotesque, slow)
+                enemyKind = 'bloat';
+                speed = 0.07; // Slow lumbering speed
+                health = 4;
+                points = 50;
+                hitColor = 0x84cc16;
+
+                const blobMat = new THREE.MeshStandardMaterial({ color: 0x1a2e05, roughness: 0.9, emissive: 0x0f2302 });
+                const eyeMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+
+                // Bulky blob body
+                const bodyGeo = new THREE.SphereGeometry(1.2, 12, 12);
+                bodyGeo.scale(1.4, 0.7, 1.2);
+                const body = new THREE.Mesh(bodyGeo, blobMat);
+                body.position.y = 0.7;
+                group.add(body);
+
+                // Multiple scattered eyes on the body
+                const eyeGeo = new THREE.SphereGeometry(0.1, 8, 8);
+                for (let i = 0; i < 6; i++) {
+                    const e = new THREE.Mesh(eyeGeo, eyeMat);
+                    const angle = (i / 6) * Math.PI - Math.PI / 2;
+                    e.position.set(Math.sin(angle) * 0.9, 0.8 + Math.cos(i) * 0.2, Math.cos(angle) * 0.9);
+                    group.add(e);
+                }
+
+                // 6 stubby crawling legs touching the floor
+                const legGeo = new THREE.CylinderGeometry(0.1, 0.06, 0.8, 6);
+                const legs = [];
+                for (let i = 0; i < 6; i++) {
+                    const leg = new THREE.Mesh(legGeo, blobMat);
+                    const side = i % 2 === 0 ? 1 : -1;
+                    leg.position.set(side * 1.1, 0.3, (Math.floor(i / 2) - 1) * 0.7);
+                    group.add(leg);
+                    legs.push(leg);
+                }
+
+                animatedParts = { body, legs };
+
+            } else {
+                // TYPE 3: Jittering Specter/Crawler (Medium-sized, bizarre posture, medium-fast, violently jittering)
+                enemyKind = 'jitterer';
+                speed = 0.11; // Medium-fast speed
+                health = 2;
+                points = 40;
+                hitColor = 0xef4444;
+
+                const bodyMat = new THREE.MeshStandardMaterial({ color: 0x31081f, roughness: 0.4, emissive: 0x210010 });
+                const mouthMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
+
+                // Humped bizarre torso
+                const bodyGeo = new THREE.DodecahedronGeometry(0.7, 1);
+                bodyGeo.scale(0.8, 1.3, 0.8);
+                const body = new THREE.Mesh(bodyGeo, bodyMat);
+                body.position.y = 1.1;
+                group.add(body);
+
+                // Creepy wide maw
+                const mouthGeo = new THREE.BoxGeometry(0.6, 0.2, 0.4);
+                const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+                mouth.position.set(0, 1.2, 0.5);
+                group.add(mouth);
+
+                // Two long twitching walking legs
+                const legGeo = new THREE.CylinderGeometry(0.08, 0.05, 1.3, 6);
+                const leftLeg = new THREE.Mesh(legGeo, bodyMat);
+                leftLeg.position.set(-0.4, 0.65, 0);
+                group.add(leftLeg);
+
+                const rightLeg = new THREE.Mesh(legGeo, bodyMat);
+                rightLeg.position.set(0.4, 0.65, 0);
+                group.add(rightLeg);
+
+                animatedParts = { body, mouth, legs: [leftLeg, rightLeg] };
+            }
+
+            const spawnX = (Math.random() - 0.5) * (CORRIDOR_WIDTH - 4);
+            const spawnZ = -CORRIDOR_LENGTH + 8;
+            group.position.set(spawnX, 0, spawnZ);
+
+            const monsterObj = {
+                type: 'walking_monster',
+                kind: enemyKind,
+                mesh: group,
+                parts: animatedParts,
+                speed,
+                health,
+                points,
+                hitColor,
+                animOffset: Math.random() * 100,
+                jitterTimer: 0,
+                hitTimer: 0
+            };
+
+            scene.add(group);
+            ghouls.push(monsterObj);
+        }
+
         /* -------------------------------------------------------------------------- */
-        /* SPELL SHOOTING & PARTICLES                                                 */
+        /* SPELL SHOOTING & DYNAMIC LIGHTING & PARTICLES                              */
         /* -------------------------------------------------------------------------- */
         function castSpell() {
             if (!isGameActive || isReloading) return;
@@ -900,9 +1033,9 @@
             const bubble = new THREE.Mesh(bubbleGeo, bubbleMat);
             spellGroup.add(bubble);
 
-            // No per-spell PointLight: adding/removing lights forces shader
-            // recompilation in three.js and causes a hitch on every shot.
-            // The emissive bubble gives the glow instead.
+            // Dynamic Point Light attached to the spell projectile casting light onto floor/walls/monsters
+            const dynamicSpellLight = new THREE.PointLight(0x38bdf8, 4.0, 18);
+            spellGroup.add(dynamicSpellLight);
 
             const dir = new THREE.Vector3(0, 0, -1);
             dir.applyQuaternion(camera.quaternion);
@@ -911,6 +1044,7 @@
 
             spellProjectiles.push({
                 mesh: spellGroup,
+                light: dynamicSpellLight,
                 direction: dir,
                 speed: 0.95,
                 life: 0
@@ -1028,7 +1162,7 @@
             document.getElementById('end-icon-wrap').className = 'w-20 h-20 mx-auto mb-4 rounded-full bg-amber-900/30 flex items-center justify-center border border-amber-400/40 shadow-[0_0_20px_rgba(245,158,11,0.5)]';
             document.getElementById('end-icon').className = 'fa-solid fa-crown text-4xl text-amber-300 animate-bounce';
             document.getElementById('end-title').innerText = 'CORRIDOR CONQUERED!';
-            document.getElementById('end-desc').innerText = 'Congratulations! You survived all 6 waves and banished the ghouls!';
+            document.getElementById('end-desc').innerText = 'Congratulations! You survived all 6 waves, defeated the bizarre monsters, and banished the forces of darkness!';
             document.getElementById('final-score').innerText = score;
             document.getElementById('final-wave').innerText = '6 / 6';
 
@@ -1043,7 +1177,7 @@
             document.getElementById('end-icon-wrap').className = 'w-20 h-20 mx-auto mb-4 rounded-full bg-rose-900/30 flex items-center justify-center border border-rose-400/30';
             document.getElementById('end-icon').className = 'fa-solid fa-skull text-4xl text-rose-400';
             document.getElementById('end-title').innerText = 'GAME OVER';
-            document.getElementById('end-desc').innerText = 'The ghosts reached you! Re-charge your magic wand and try again.';
+            document.getElementById('end-desc').innerText = 'The monsters reached you! Re-charge your magic wand and try again.';
             document.getElementById('final-score').innerText = score;
             document.getElementById('final-wave').innerText = `${wave} / ${TOTAL_WAVES}`;
 
@@ -1062,15 +1196,13 @@
         function animate(time) {
             requestAnimationFrame(animate);
 
-            // Real elapsed seconds, clamped so tab-switching doesn't cause huge jumps
             if (lastFrameTime === null) lastFrameTime = time;
             const dtSec = Math.min((time - lastFrameTime) / 1000, 0.1);
             lastFrameTime = time;
 
-            // frameScale = 1 at 60fps, so the original per-frame tuning still applies
             const frameScale = dtSec * 60;
-            const slow = timeDilation;                 // gameplay slow-motion factor
-            const delta = dtSec * slow;                // seconds, slow-mo applied
+            const slow = timeDilation;                 
+            const delta = dtSec * slow;                
             const smooth = 1 - Math.pow(0.9, frameScale);
 
             camera.rotation.y += (targetRotationY - camera.rotation.y) * smooth;
@@ -1087,27 +1219,22 @@
             });
 
             if (isGameActive) {
-                // Wave spawning
+                // Wave spawning logic
                 spawnTimer += delta;
-                if (spawnTimer > 1.4 && ghoulsSpawnedInWave < totalGhoulsInWave) {
-                    createCuteGhoul();
+                if (spawnTimer > 1.3 && ghoulsSpawnedInWave < totalGhoulsInWave) {
+                    if (wave === 6) {
+                        createWave6BizarreMonster(); // WAVE 6 SPECIAL: 3 Bizarre Walking Monsters
+                    } else {
+                        createCuteGhoul();
+                    }
                     ghoulsSpawnedInWave++;
                     spawnTimer = 0;
                 }
 
-                // Wave progression
+                // Wave progression logic
                 if (ghoulsSpawnedInWave >= totalGhoulsInWave && ghouls.length === 0) {
                     if (wave >= TOTAL_WAVES) {
                         triggerWinScreen();
-                        spellLights.forEach((l, i) => {
-                            const sp = spellProjectiles[i];
-                            if (sp) {
-                                l.position.copy(sp.mesh.position);
-                                l.intensity = 8;
-                            } else {
-                                l.intensity = 0;
-                            }
-                        });
                         renderer.render(scene, camera);
                         return;
                     } else {
@@ -1118,31 +1245,37 @@
                     }
                 }
 
-                // Projectiles
-                const projSlow = slow < 1.0 ? 0.3 : 1.0;
+                // Projectiles and dynamic light movement
+                const projSlow = slow < 1.0 ? 0.45 : 1.0;
                 for (let i = spellProjectiles.length - 1; i >= 0; i--) {
                     const sp = spellProjectiles[i];
                     sp.mesh.position.addScaledVector(sp.direction, sp.speed * projSlow * frameScale);
                     sp.life += dtSec;
 
+                    // Light pulse intensity decay over distance
+                    sp.light.intensity = 3.5 + Math.sin(time * 0.02) * 1.0;
+
                     let hit = false;
                     for (let j = ghouls.length - 1; j >= 0; j--) {
-                        const ghoul = ghouls[j];
-                        const dist = sp.mesh.position.distanceTo(ghoul.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0)));
+                        const enemy = ghouls[j];
+                        const enemyHeight = enemy.type === 'walking_monster' ? 1.0 : 1.2;
+                        const dist = sp.mesh.position.distanceTo(enemy.mesh.position.clone().add(new THREE.Vector3(0, enemyHeight, 0)));
 
-                        if (dist < 1.2) {
+                        if (dist < (enemy.type === 'walking_monster' ? 1.4 : 1.2)) {
                             hit = true;
-                            ghoul.health--;
-                            ghoul.hitTimer = 0.2;
+                            enemy.health--;
+                            enemy.hitTimer = 0.2;
 
                             sfx.playGhoulHit();
-                            createSparkles(sp.mesh.position, ghoul.isScary ? 0xef4444 : 0x38bdf8);
 
-                            if (ghoul.health <= 0) {
-                                createSparkles(ghoul.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0)), ghoul.isScary ? 0xef4444 : 0xa855f7);
-                                scene.remove(ghoul.mesh);
+                            const hitSparkColor = enemy.hitColor || (enemy.isScary ? 0xef4444 : 0x38bdf8);
+                            createSparkles(sp.mesh.position, hitSparkColor);
+
+                            if (enemy.health <= 0) {
+                                createSparkles(enemy.mesh.position.clone().add(new THREE.Vector3(0, enemyHeight, 0)), hitSparkColor);
+                                scene.remove(enemy.mesh);
                                 ghouls.splice(j, 1);
-                                score += ghoul.isScary ? 25 : 10;
+                                score += enemy.points || (enemy.isScary ? 25 : 10);
                                 updateHUD();
                             }
                             break;
@@ -1155,36 +1288,86 @@
                     }
                 }
 
-                // Ghouls
+                // Update Enemies (Floating ghosts vs Bizarre Walking Monsters)
                 for (let i = ghouls.length - 1; i >= 0; i--) {
-                    const g = ghouls[i];
+                    const enemy = ghouls[i];
 
-                    g.mesh.position.z += g.speed * frameScale * slow;
+                    enemy.mesh.position.z += enemy.speed * frameScale * slow;
 
-                    const animTime = (time * 0.008 + g.animOffset);
-                    g.mesh.position.y = Math.sin(animTime * 2) * 0.22;
-                    g.mesh.rotation.z = Math.sin(animTime) * 0.12;
+                    const animTime = (time * 0.008 + enemy.animOffset);
 
-                    g.leftArm.rotation.z = Math.PI / 6 + Math.sin(animTime * 2) * 0.25;
-                    g.rightArm.rotation.z = -Math.PI / 6 - Math.sin(animTime * 2) * 0.25;
+                    if (enemy.type === 'walking_monster') {
+                        // Walking Monster animations + Erratic shaking/twitching
+                        enemy.jitterTimer += dtSec;
+                        const isTwitching = Math.sin(enemy.jitterTimer * 12 + enemy.animOffset) > 0.65;
 
-                    g.leftFoot.position.z = Math.sin(animTime * 3) * 0.22;
-                    g.rightFoot.position.z = -Math.sin(animTime * 3) * 0.22;
+                        // Uncanny jitter / snap offset
+                        let twitchX = 0, twitchRotY = 0, twitchRotZ = 0;
+                        if (isTwitching) {
+                            twitchX = (Math.random() - 0.5) * 0.25;
+                            twitchRotY = (Math.random() - 0.5) * 0.4;
+                            twitchRotZ = (Math.random() - 0.5) * 0.3;
+                        }
 
-                    if (g.hitTimer > 0) {
-                        g.hitTimer -= dtSec;
-                        g.mesh.scale.set(1.25, 0.75, 1.25);
+                        enemy.mesh.position.x += twitchX * 0.2;
+                        enemy.mesh.rotation.y = twitchRotY;
+                        enemy.mesh.rotation.z = twitchRotZ;
+
+                        if (enemy.kind === 'spindle') {
+                            // Spindle Stalker leg & torso twitching
+                            const legs = enemy.parts.legs;
+                            for (let k = 0; k < legs.length; k++) {
+                                legs[k].rotation.x = Math.sin(animTime * 4 + k) * 0.4;
+                                legs[k].rotation.z = (k % 2 === 0 ? 0.2 : -0.2) + Math.cos(animTime * 4) * 0.15;
+                            }
+                            enemy.parts.torso.rotation.z = Math.sin(animTime * 2) * 0.1;
+                            enemy.parts.head.rotation.x = isTwitching ? (Math.random() - 0.5) * 0.8 : 0;
+                        } else if (enemy.kind === 'bloat') {
+                            // Bloat Crawler low heavy movement
+                            const legs = enemy.parts.legs;
+                            for (let k = 0; k < legs.length; k++) {
+                                legs[k].rotation.z = Math.sin(animTime * 2 + k) * 0.3;
+                            }
+                            enemy.parts.body.scale.y = 0.7 + Math.sin(animTime * 3) * 0.1;
+                        } else if (enemy.kind === 'jitterer') {
+                            // Jittering Specter
+                            const legs = enemy.parts.legs;
+                            legs[0].rotation.x = Math.sin(animTime * 5) * 0.6;
+                            legs[1].rotation.x = -Math.sin(animTime * 5) * 0.6;
+                            enemy.parts.mouth.scale.y = 1.0 + Math.abs(Math.sin(animTime * 6)) * 1.5;
+                        }
+
+                        // Ground contact baseline
+                        enemy.mesh.position.y = 0;
+
                     } else {
-                        g.mesh.scale.set(1, 1, 1);
+                        // Floating ghost animation
+                        enemy.mesh.position.y = Math.sin(animTime * 2) * 0.22;
+                        enemy.mesh.rotation.z = Math.sin(animTime) * 0.12;
+
+                        enemy.leftArm.rotation.z = Math.PI / 6 + Math.sin(animTime * 2) * 0.25;
+                        enemy.rightArm.rotation.z = -Math.PI / 6 - Math.sin(animTime * 2) * 0.25;
+
+                        enemy.leftFoot.position.z = Math.sin(animTime * 3) * 0.22;
+                        enemy.rightFoot.position.z = -Math.sin(animTime * 3) * 0.22;
                     }
 
-                    if (g.mesh.position.z >= camera.position.z - 1.5) {
+                    // Hit recoil animation
+                    if (enemy.hitTimer > 0) {
+                        enemy.hitTimer -= dtSec;
+                        enemy.mesh.scale.set(1.25, 0.75, 1.25);
+                    } else {
+                        enemy.mesh.scale.set(1, 1, 1);
+                    }
+
+                    // Player damage when reaching camera
+                    if (enemy.mesh.position.z >= camera.position.z - 1.5) {
                         sfx.playDamage();
-                        health -= g.isScary ? 22 : 15;
+                        health -= enemy.type === 'walking_monster' ? 25 : (enemy.isScary ? 22 : 15);
                         updateHUD();
 
-                        createSparkles(g.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf59e0b);
-                        scene.remove(g.mesh);
+                        createSparkles(enemy.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf59e0b);
+                        scene.remove(enemy.mesh);
                         ghouls.splice(i, 1);
 
                         if (health <= 0) {
@@ -1197,7 +1380,7 @@
                 // Particles (respect slow-motion)
                 for (let i = particles.length - 1; i >= 0; i--) {
                     const p = particles[i];
-                    const ps = frameScale * (slow < 1.0 ? 0.3 : 1.0);
+                    const ps = frameScale * (slow < 1.0 ? 0.45 : 1.0);
                     p.mesh.position.addScaledVector(p.vel, ps);
                     p.life -= 0.04 * ps;
                     p.mesh.scale.multiplyScalar(Math.pow(0.92, ps));
