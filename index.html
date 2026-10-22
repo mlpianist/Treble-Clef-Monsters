@@ -4,13 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ghoulish Magic Zap 3D - Piano Reload Edition</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Three.js Library CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- VexFlow 4.2.3 CDN for Music Notation -->
     <script src="https://unpkg.com/vexflow@4.2.3/build/cjs/vexflow.js"></script>
     <style>
         body {
@@ -20,25 +16,15 @@
             background-color: #05050d;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        canvas {
-            display: block;
-            width: 100vw;
-            height: 100vh;
-        }
-        /* Custom UI overlays */
+        canvas { display: block; width: 100vw; height: 100vh; }
         .glass-panel {
             background: rgba(15, 10, 30, 0.85);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(168, 85, 247, 0.35);
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
         }
-        .glow-text-purple {
-            text-shadow: 0 0 12px rgba(168, 85, 247, 0.8), 0 0 20px rgba(168, 85, 247, 0.4);
-        }
-        .glow-text-cyan {
-            text-shadow: 0 0 12px rgba(6, 182, 212, 0.8), 0 0 20px rgba(6, 182, 212, 0.4);
-        }
-        /* Reticle Crosshair */
+        .glow-text-purple { text-shadow: 0 0 12px rgba(168, 85, 247, 0.8), 0 0 20px rgba(168, 85, 247, 0.4); }
+        .glow-text-cyan { text-shadow: 0 0 12px rgba(6, 182, 212, 0.8), 0 0 20px rgba(6, 182, 212, 0.4); }
         #crosshair {
             position: absolute;
             top: 50%;
@@ -46,8 +32,6 @@
             transform: translate(-50%, -50%);
             pointer-events: none;
         }
-
-        /* Keyboard styling for reload activity */
         #piano-container {
             background: linear-gradient(180deg, #2e1052 0%, #17072c 100%);
             border: 2px solid #a855f7;
@@ -59,10 +43,7 @@
             display: flex;
             justify-content: center;
         }
-        #piano-keys {
-            position: relative;
-            height: 140px;
-        }
+        #piano-keys { position: relative; height: 140px; }
         .pkey {
             position: absolute;
             top: 0;
@@ -81,10 +62,7 @@
             border: 1px solid #a855f7;
             z-index: 2;
         }
-        .pkey:active {
-            transform: translateY(3px);
-            filter: brightness(1.2);
-        }
+        .pkey:active { transform: translateY(3px); filter: brightness(1.2); }
         .pkey-label {
             position: absolute;
             bottom: 6px;
@@ -96,17 +74,9 @@
             color: #7e22ce;
             pointer-events: none;
         }
-        .pkey.black .pkey-label {
-            color: #38bdf8;
-        }
-
-        /* Flash Feedback for Reload Activity */
-        .flash-good {
-            animation: flashGreen 0.4s ease;
-        }
-        .flash-bad {
-            animation: flashRed 0.4s ease;
-        }
+        .pkey.black .pkey-label { color: #38bdf8; }
+        .flash-good { animation: flashGreen 0.4s ease; }
+        .flash-bad { animation: flashRed 0.4s ease; }
         @keyframes flashGreen {
             0% { background-color: rgba(34, 197, 94, 0.4); }
             100% { background-color: transparent; }
@@ -130,7 +100,6 @@
 
     <!-- HUD Overlay -->
     <div id="hud" class="absolute top-0 left-0 w-full p-4 md:p-6 flex justify-between items-start pointer-events-none z-10">
-        <!-- Lantern Health Bar -->
         <div class="glass-panel rounded-2xl p-3 md:p-4 flex items-center gap-3 w-56 md:w-72">
             <i class="fa-solid fa-heart-pulse text-2xl text-rose-400 animate-pulse"></i>
             <div class="w-full">
@@ -144,7 +113,6 @@
             </div>
         </div>
 
-        <!-- Bullets / Ammo & Reload Notice -->
         <div class="glass-panel rounded-2xl px-5 py-3 flex flex-col items-center justify-center border-amber-500/50">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-xl"></i>
@@ -156,11 +124,10 @@
             </div>
         </div>
 
-        <!-- Wave & Score Display -->
         <div class="glass-panel rounded-2xl px-5 py-3 flex gap-5 text-center">
             <div>
                 <p class="text-[10px] tracking-wider text-purple-300 font-bold uppercase">Wave</p>
-                <p id="wave-val" class="text-2xl font-black text-cyan-300 glow-text-cyan">1</p>
+                <p id="wave-val" class="text-2xl font-black text-cyan-300 glow-text-cyan">1 / 6</p>
             </div>
             <div class="w-px bg-purple-800/50 my-1"></div>
             <div>
@@ -173,7 +140,7 @@
     <!-- RELOAD PIANO OVERLAY MODAL -->
     <div id="reload-modal" class="hidden absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 transition-all">
         <div id="reload-card" class="bg-slate-900/60 backdrop-blur-md p-5 md:p-6 rounded-3xl max-w-xl w-full text-center border border-purple-400/30 relative shadow-2xl">
-            
+
             <div class="flex justify-between items-center mb-2">
                 <div class="flex items-center gap-2 text-cyan-300 font-bold text-xs md:text-sm">
                     <i class="fa-solid fa-music text-purple-400"></i>
@@ -184,12 +151,10 @@
                 </div>
             </div>
 
-            <!-- VexFlow Staff Rendering Area (Fully Opaque Canvas for Crisp View) -->
             <div class="bg-slate-900/95 rounded-2xl p-2 border border-purple-500/50 mb-4 flex justify-center items-center h-36 shadow-lg">
                 <div id="vexflow-staff" class="w-full flex justify-center"></div>
             </div>
 
-            <!-- Interactive Piano Keyboard (Opaque / Solid) -->
             <div id="piano-container" class="w-full">
                 <div id="piano-keys" class="w-full"></div>
             </div>
@@ -214,12 +179,18 @@
                 Survive <strong>6 waves</strong> of ghosts (15 per wave)! <br>
                 Waves 1–3: Cute Ghouls (2 hits) | Waves 4–6: Scarier Shadow Ghouls (4 hits)!
             </p>
-            
+
             <div class="bg-purple-950/60 p-4 rounded-xl mb-6 text-left text-xs md:text-sm text-purple-200 space-y-2 border border-purple-800/40">
-                <p><i class="fa-solid fa-mouse text-cyan-400 mr-2"></i> <strong>Aim & Zap:</strong> Click or tap to shoot spell</p>
+                <p><i class="fa-solid fa-mouse text-cyan-400 mr-2"></i> <strong>Aim &amp; Zap:</strong> Click or tap to shoot spell</p>
                 <p><i class="fa-solid fa-keyboard text-amber-400 mr-2"></i> <strong>Reload:</strong> Press <strong>SPACE / ENTER</strong> to enter Translucent Slow-Motion Piano Mode</p>
                 <p><i class="fa-solid fa-music text-purple-400 mr-2"></i> <strong>Note Staff Range:</strong> Notes span <strong>E4 through F5</strong> (+2 bullets per correct note)</p>
             </div>
+
+            <button id="start-btn" class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-500 text-white font-bold text-lg hover:brightness-110 transition-all shadow-[0_0_20px_rgba(168,85,247,0.5)] active:scale-95">
+                <i class="fa-solid fa-play mr-2"></i> Start Zapping
+            </button>
+        </div>
+    </div>
 
     <!-- Game Over / Victory Screen -->
     <div id="game-over-overlay" class="hidden absolute inset-0 z-40 flex items-center justify-center bg-slate-950/85 backdrop-blur-md">
@@ -229,7 +200,7 @@
             </div>
             <h2 id="end-title" class="text-3xl font-extrabold text-white mb-2 glow-text-cyan">VICTORY!</h2>
             <p id="end-desc" class="text-purple-200 text-sm mb-6">You defeated all 6 ghost waves and saved the magical corridor!</p>
-            
+
             <div class="bg-purple-900/30 p-4 rounded-2xl mb-6 flex justify-around border border-purple-700/30">
                 <div>
                     <span class="block text-xs text-purple-300 font-bold uppercase">Wave Completed</span>
@@ -251,20 +222,16 @@
     <!-- MAIN GAME SCRIPT -->
     <script>
         /* -------------------------------------------------------------------------- */
-        /* WEB AUDIO API SYNTHESIZER (Piano Tones & Sound FX)                         */
+        /* WEB AUDIO API SYNTHESIZER                                                  */
         /* -------------------------------------------------------------------------- */
         class SoundFX {
-            constructor() {
-                this.ctx = null;
-            }
+            constructor() { this.ctx = null; }
 
             init() {
                 if (!this.ctx) {
                     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
                 }
-                if (this.ctx.state === 'suspended') {
-                    this.ctx.resume();
-                }
+                if (this.ctx.state === 'suspended') this.ctx.resume();
             }
 
             playPianoPitch(freq) {
@@ -272,14 +239,11 @@
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
                 osc.type = 'triangle';
-
                 osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
                 gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.6);
-
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
-
                 osc.start();
                 osc.stop(this.ctx.currentTime + 0.6);
             }
@@ -289,16 +253,12 @@
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
                 osc.type = 'sine';
-                
                 osc.frequency.setValueAtTime(900, this.ctx.currentTime);
                 osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.2);
-
                 gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
-
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
-
                 osc.start();
                 osc.stop(this.ctx.currentTime + 0.2);
             }
@@ -308,17 +268,13 @@
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
                 osc.type = 'sine';
-
                 osc.frequency.setValueAtTime(350, this.ctx.currentTime);
                 osc.frequency.linearRampToValueAtTime(550, this.ctx.currentTime + 0.1);
                 osc.frequency.linearRampToValueAtTime(250, this.ctx.currentTime + 0.22);
-
                 gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.22);
-
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
-
                 osc.start();
                 osc.stop(this.ctx.currentTime + 0.22);
             }
@@ -329,20 +285,15 @@
                 const osc1 = this.ctx.createOscillator();
                 const osc2 = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
-
                 osc1.type = 'sine';
                 osc2.type = 'sine';
-
-                osc1.frequency.setValueAtTime(523.25, now); // C5
-                osc2.frequency.setValueAtTime(659.25, now + 0.08); // E5
-
+                osc1.frequency.setValueAtTime(523.25, now);
+                osc2.frequency.setValueAtTime(659.25, now + 0.08);
                 gain.gain.setValueAtTime(0.2, now);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-
                 osc1.connect(gain);
                 osc2.connect(gain);
                 gain.connect(this.ctx.destination);
-
                 osc1.start(now);
                 osc2.start(now + 0.08);
                 osc1.stop(now + 0.35);
@@ -354,16 +305,12 @@
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
                 osc.type = 'sawtooth';
-
                 osc.frequency.setValueAtTime(180, this.ctx.currentTime);
                 osc.frequency.linearRampToValueAtTime(110, this.ctx.currentTime + 0.25);
-
                 gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
-
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
-
                 osc.start();
                 osc.stop(this.ctx.currentTime + 0.25);
             }
@@ -373,16 +320,12 @@
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
                 osc.type = 'sawtooth';
-
                 osc.frequency.setValueAtTime(130, this.ctx.currentTime);
                 osc.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + 0.3);
-
                 gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
-
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
-
                 osc.start();
                 osc.stop(this.ctx.currentTime + 0.3);
             }
@@ -396,6 +339,8 @@
         const CORRIDOR_LENGTH = 70;
         const CORRIDOR_WIDTH = 12;
         const CORRIDOR_HEIGHT = 10;
+        const TOTAL_WAVES = 6;
+        const GHOULS_PER_WAVE = 15;
 
         let scene, camera, renderer;
         let wandGroup, wandTipPoint;
@@ -405,53 +350,50 @@
         let torchLights = [];
 
         let isGameActive = false;
-        let isReloading = false; // Toggle state for Piano Reload activity
-        let timeDilation = 1.0;  // Dilation factor (1.0 = normal, 0.05 = super slow motion)
+        let isReloading = false;
+        let timeDilation = 1.0;
 
         let health = 100;
         let ammo = 10;
         let score = 0;
         let wave = 1;
         let ghoulsSpawnedInWave = 0;
-        let totalGhoulsInWave = 5;
+        let totalGhoulsInWave = GHOULS_PER_WAVE;
         let spawnTimer = 0;
 
-        // Camera / Aiming variables
         let targetRotationX = 0, targetRotationY = 0;
+        let lastFrameTime = null;
 
         /* -------------------------------------------------------------------------- */
-        /* PIANO & VEXFLOW TREBLE CLEF RELOAD SYSTEM                                   */
+        /* PIANO & VEXFLOW TREBLE CLEF RELOAD SYSTEM                                  */
         /* -------------------------------------------------------------------------- */
-        // Restricted target note pool: strictly E4 up to F5
-        const TREBLE_NOTES = [
-            'E4', 'F4', 'G4', 'A4', 'B4', 
-            'C5', 'D5', 'E5', 'F5'
-        ];
+        const TREBLE_NOTES = ['E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F5'];
 
         const CHROMATIC_KEYBOARD = [
-            { name: 'C4', letter: 'C', octave: 4, type: 'white' },
-            { name: 'C#4', letter: 'C#', octave: 4, type: 'black' },
-            { name: 'D4', letter: 'D', octave: 4, type: 'white' },
-            { name: 'D#4', letter: 'D#', octave: 4, type: 'black' },
-            { name: 'E4', letter: 'E', octave: 4, type: 'white' },
-            { name: 'F4', letter: 'F', octave: 4, type: 'white' },
-            { name: 'F#4', letter: 'F#', octave: 4, type: 'black' },
-            { name: 'G4', letter: 'G', octave: 4, type: 'white' },
-            { name: 'G#4', letter: 'G#', octave: 4, type: 'black' },
-            { name: 'A4', letter: 'A', octave: 4, type: 'white' },
-            { name: 'A#4', letter: 'A#', octave: 4, type: 'black' },
-            { name: 'B4', letter: 'B', octave: 4, type: 'white' },
-            { name: 'C5', letter: 'C', octave: 5, type: 'white' },
-            { name: 'C#5', letter: 'C#', octave: 5, type: 'black' },
-            { name: 'D5', letter: 'D', octave: 5, type: 'white' },
-            { name: 'D#5', letter: 'D#', octave: 5, type: 'black' },
-            { name: 'E5', letter: 'E', octave: 5, type: 'white' },
-            { name: 'F5', letter: 'F', octave: 5, type: 'white' },
-            { name: 'F#5', letter: 'F#', octave: 5, type: 'black' },
-            { name: 'G5', letter: 'G', octave: 5, type: 'white' }
+            { name: 'C4', type: 'white' },
+            { name: 'C#4', type: 'black' },
+            { name: 'D4', type: 'white' },
+            { name: 'D#4', type: 'black' },
+            { name: 'E4', type: 'white' },
+            { name: 'F4', type: 'white' },
+            { name: 'F#4', type: 'black' },
+            { name: 'G4', type: 'white' },
+            { name: 'G#4', type: 'black' },
+            { name: 'A4', type: 'white' },
+            { name: 'A#4', type: 'black' },
+            { name: 'B4', type: 'white' },
+            { name: 'C5', type: 'white' },
+            { name: 'C#5', type: 'black' },
+            { name: 'D5', type: 'white' },
+            { name: 'D#5', type: 'black' },
+            { name: 'E5', type: 'white' },
+            { name: 'F5', type: 'white' },
+            { name: 'F#5', type: 'black' },
+            { name: 'G5', type: 'white' }
         ];
 
         let currentTargetNote = 'E4';
+
         function noteToFreq(name) {
             const NOTE_LETTERS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
             const m = name.match(/^([A-G]#?)(\d)$/);
@@ -478,9 +420,8 @@
                     lastWhiteX = whiteX;
                     whiteX += WHITE_SPACING;
                     return { ...k, pos };
-                } else {
-                    return { ...k, pos: lastWhiteX + BLACK_OFFSET };
                 }
+                return { ...k, pos: lastWhiteX + BLACK_OFFSET };
             });
 
             keysWrap.style.width = whiteX + 'px';
@@ -518,9 +459,9 @@
             container.innerHTML = '';
 
             const VF = Vex.Flow;
-            const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-            renderer.resize(260, 140);
-            const context = renderer.getContext();
+            const vfRenderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+            vfRenderer.resize(260, 140);
+            const context = vfRenderer.getContext();
             context.setFont("Arial", 10, "").setBackgroundFillStyle("#eeddff");
             context.setFillStyle('#e9d5ff');
             context.setStrokeStyle('#e9d5ff');
@@ -582,47 +523,153 @@
             const modal = document.getElementById('reload-modal');
 
             if (isReloading) {
-                timeDilation = 0.05; // Slow-mo active
+                timeDilation = 0.05;
                 document.exitPointerLock?.();
                 modal.classList.remove('hidden');
                 pickNextNote();
             } else {
-                timeDilation = 1.0; // Normal speed
+                timeDilation = 1.0;
                 modal.classList.add('hidden');
                 document.body.requestPointerLock?.();
             }
         }
 
         /* -------------------------------------------------------------------------- */
-        /* GAME CONFIG & STATE                                                        */
+        /* THREE.JS SCENE SETUP                                                       */
         /* -------------------------------------------------------------------------- */
-        const CORRIDOR_LENGTH = 70;
-        const CORRIDOR_WIDTH = 12;
-        const CORRIDOR_HEIGHT = 10;
-        const TOTAL_WAVES = 6;
-        const GHOULS_PER_WAVE = 15; // 15 ghosts per wave
+        function init() {
+            renderKeyboard();
+            setupControls();
 
-        let scene, camera, renderer;
-        let wandGroup, wandTipPoint;
-        let ghouls = [];
-        let spellProjectiles = [];
-        let particles = [];
-        let torchLights = [];
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x05050f);
+            scene.fog = new THREE.FogExp2(0x05050f, 0.022);
 
-        let isGameActive = false;
-        let isReloading = false;
-        let timeDilation = 1.0;
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.rotation.order = 'YXZ'; // avoids camera roll when looking around
+            camera.position.set(0, 1.6, 0);
 
-        let health = 100;
-        let ammo = 10;
-        let score = 0;
-        let wave = 1;
-        let ghoulsSpawnedInWave = 0;
-        let totalGhoulsInWave = GHOULS_PER_WAVE;
-        let spawnTimer = 0;
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            document.getElementById('game-container').appendChild(renderer.domElement);
 
-        // Camera / Aiming variables
-        let targetRotationX = 0, targetRotationY = 0;
+            buildCorridor();
+            buildMagicWand();
+
+            const ambient = new THREE.AmbientLight(0x3b0764, 0.4);
+            scene.add(ambient);
+
+            window.addEventListener('resize', onWindowResize);
+            requestAnimationFrame(animate);
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* PROCEDURAL CORRIDOR BUILDER                                                */
+        /* -------------------------------------------------------------------------- */
+        function buildCorridor() {
+            const stoneTexture = generateStoneTexture();
+            stoneTexture.repeat.set(4, 20);
+
+            const floorGeo = new THREE.PlaneGeometry(CORRIDOR_WIDTH, CORRIDOR_LENGTH);
+            const floorMat = new THREE.MeshStandardMaterial({
+                map: stoneTexture,
+                roughness: 0.8,
+                metalness: 0.2
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.z = -CORRIDOR_LENGTH / 2 + 5;
+            scene.add(floor);
+
+            const ceilingMat = new THREE.MeshStandardMaterial({
+                map: stoneTexture,
+                roughness: 0.9,
+                color: 0x1e1b4b
+            });
+            const ceiling = new THREE.Mesh(floorGeo, ceilingMat);
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.position.y = CORRIDOR_HEIGHT;
+            ceiling.position.z = -CORRIDOR_LENGTH / 2 + 5;
+            scene.add(ceiling);
+
+            const wallGeo = new THREE.PlaneGeometry(CORRIDOR_LENGTH, CORRIDOR_HEIGHT);
+            const wallMat = new THREE.MeshStandardMaterial({
+                map: stoneTexture,
+                roughness: 0.7
+            });
+
+            const leftWall = new THREE.Mesh(wallGeo, wallMat);
+            leftWall.rotation.y = Math.PI / 2;
+            leftWall.position.set(-CORRIDOR_WIDTH / 2, CORRIDOR_HEIGHT / 2, -CORRIDOR_LENGTH / 2 + 5);
+            scene.add(leftWall);
+
+            const rightWall = new THREE.Mesh(wallGeo, wallMat);
+            rightWall.rotation.y = -Math.PI / 2;
+            rightWall.position.set(CORRIDOR_WIDTH / 2, CORRIDOR_HEIGHT / 2, -CORRIDOR_LENGTH / 2 + 5);
+            scene.add(rightWall);
+
+            const backGeo = new THREE.PlaneGeometry(CORRIDOR_WIDTH, CORRIDOR_HEIGHT);
+            const backWall = new THREE.Mesh(backGeo, wallMat);
+            backWall.position.set(0, CORRIDOR_HEIGHT / 2, -CORRIDOR_LENGTH + 5);
+            scene.add(backWall);
+
+            for (let z = -5; z > -CORRIDOR_LENGTH + 10; z -= 12) {
+                createTorch(-CORRIDOR_WIDTH / 2 + 0.3, 2.8, z, Math.PI / 2);
+                createTorch(CORRIDOR_WIDTH / 2 - 0.3, 2.8, z, -Math.PI / 2);
+            }
+        }
+
+        function createTorch(x, y, z, rotationY) {
+            const torchGroup = new THREE.Group();
+
+            const holderGeo = new THREE.CylinderGeometry(0.05, 0.08, 0.6, 8);
+            const holderMat = new THREE.MeshStandardMaterial({ color: 0x332211, roughness: 0.8 });
+            const holder = new THREE.Mesh(holderGeo, holderMat);
+            holder.rotation.z = Math.PI / 6;
+            torchGroup.add(holder);
+
+            const flameGeo = new THREE.ConeGeometry(0.18, 0.45, 8);
+            const flameMat = new THREE.MeshBasicMaterial({ color: 0xff7700 });
+            const flame = new THREE.Mesh(flameGeo, flameMat);
+            flame.position.set(0.15, 0.3, 0);
+            torchGroup.add(flame);
+
+            const torchLight = new THREE.PointLight(0xffaa22, 2.5, 18);
+            torchLight.position.set(0.15, 0.35, 0);
+            torchGroup.add(torchLight);
+
+            torchGroup.position.set(x, y, z);
+            torchGroup.rotation.y = rotationY;
+            scene.add(torchGroup);
+
+            torchLights.push({ light: torchLight, baseIntensity: 2.5, seed: Math.random() * 100 });
+        }
+
+        function generateStoneTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#120d26';
+            ctx.fillRect(0, 0, 512, 512);
+
+            ctx.strokeStyle = '#2d1b4e';
+            ctx.lineWidth = 4;
+            const rows = 16;
+            const cols = 8;
+            const rh = 512 / rows;
+            const cw = 512 / cols;
+
+            for (let i = 0; i <= rows; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, i * rh);
+                ctx.lineTo(512, i * rh);
+                ctx.stroke();
+
+                const offset = (i % 2) * (cw / 2);
                 for (let j = 0; j <= cols + 1; j++) {
                     ctx.beginPath();
                     ctx.moveTo(j * cw - offset, i * rh);
@@ -646,7 +693,56 @@
         }
 
         /* -------------------------------------------------------------------------- */
-        /* PROCEDURAL ENEMY GENERATION (Waves 1-3 Cute, Waves 4-6 Scarier Shadow)    */
+        /* MAGIC WAND CREATION                                                        */
+        /* -------------------------------------------------------------------------- */
+        function buildMagicWand() {
+            wandGroup = new THREE.Group();
+
+            const handleGeo = new THREE.CylinderGeometry(0.025, 0.04, 0.8, 12);
+            const handleMat = new THREE.MeshStandardMaterial({
+                color: 0x4a1d96,
+                roughness: 0.3,
+                metalness: 0.6
+            });
+            const handle = new THREE.Mesh(handleGeo, handleMat);
+            handle.rotation.x = Math.PI / 3;
+            wandGroup.add(handle);
+
+            const orbGeo = new THREE.SphereGeometry(0.08, 16, 16);
+            const orbMat = new THREE.MeshStandardMaterial({
+                color: 0x38bdf8,
+                emissive: 0x38bdf8,
+                emissiveIntensity: 0.8,
+                roughness: 0.1
+            });
+            const orb = new THREE.Mesh(orbGeo, orbMat);
+            orb.position.set(0, 0.35, -0.22);
+            wandGroup.add(orb);
+
+            const orbLight = new THREE.PointLight(0x38bdf8, 1.5, 5);
+            orbLight.position.copy(orb.position);
+            wandGroup.add(orbLight);
+
+            wandTipPoint = orb;
+
+            wandGroup.position.set(0.35, -0.45, -0.7);
+            camera.add(wandGroup);
+            scene.add(camera);
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* HUD & UI UPDATES                                                           */
+        /* -------------------------------------------------------------------------- */
+        function updateHUD() {
+            document.getElementById('health-bar').style.width = `${Math.max(0, health)}%`;
+            document.getElementById('health-text').innerText = `${Math.max(0, health)}%`;
+            document.getElementById('ammo-count').innerText = ammo;
+            document.getElementById('score-val').innerText = score;
+            document.getElementById('wave-val').innerText = `${wave} / ${TOTAL_WAVES}`;
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* PROCEDURAL ENEMY GENERATION                                                */
         /* -------------------------------------------------------------------------- */
         function createCuteGhoul() {
             const ghoulGroup = new THREE.Group();
@@ -655,13 +751,11 @@
             let mainColor, eyeColor, requiredHits, baseSpeed;
 
             if (isScaryPhase) {
-                // Scarier Ghost Palette: Ethereal Shadow Dark Purple / Crimson
                 mainColor = 0x1f1135;
-                eyeColor = 0xef4444; // Crimson glowing eyes
-                requiredHits = 4;    // 4 hits to defeat scarier ghosts
-                baseSpeed = 0.0825 + (wave - 3) * 0.01; // 1.5x speed boost
+                eyeColor = 0xef4444;
+                requiredHits = 4;
+                baseSpeed = 0.0825 + (wave - 3) * 0.01;
             } else {
-                // Waves 1-3 Playful Colors
                 const colors = [
                     { main: 0x9333ea, eye: 0x22d3ee },
                     { main: 0x0284c7, eye: 0x4ade80 },
@@ -671,11 +765,10 @@
                 const theme = colors[Math.floor(Math.random() * colors.length)];
                 mainColor = theme.main;
                 eyeColor = theme.eye;
-                requiredHits = 2;   // 2 hits to defeat cute ghosts
-                baseSpeed = 0.0825 + wave * 0.008; // 1.5x speed boost
+                requiredHits = 2;
+                baseSpeed = 0.0825 + wave * 0.008;
             }
 
-            // Ghost Body
             const bodyGeo = new THREE.SphereGeometry(0.9, 16, 16);
             bodyGeo.scale(1, 1.35, 0.9);
             const bodyMat = new THREE.MeshStandardMaterial({
@@ -690,7 +783,6 @@
             body.position.y = 1.2;
             ghoulGroup.add(body);
 
-            // Scarier Horns / Spiky Crown for Phase 2 Ghouls
             if (isScaryPhase) {
                 const hornGeo = new THREE.ConeGeometry(0.18, 0.65, 8);
                 const hornMat = new THREE.MeshStandardMaterial({ color: 0x3f0713, roughness: 0.3 });
@@ -706,7 +798,6 @@
                 ghoulGroup.add(rightHorn);
             }
 
-            // Glowing Eyes
             const eyeGeo = new THREE.SphereGeometry(isScaryPhase ? 0.24 : 0.22, 12, 12);
             const eyeMat = new THREE.MeshBasicMaterial({ color: eyeColor });
 
@@ -718,7 +809,6 @@
             rightEye.position.set(0.3, 1.4, 0.72);
             ghoulGroup.add(rightEye);
 
-            // Pupils
             const pupilGeo = new THREE.SphereGeometry(isScaryPhase ? 0.08 : 0.1, 8, 8);
             const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
 
@@ -730,15 +820,13 @@
             rightPupil.position.set(0.3, 1.4, 0.88);
             ghoulGroup.add(rightPupil);
 
-            // Mouth
             const mouthGeo = new THREE.TorusGeometry(isScaryPhase ? 0.18 : 0.15, 0.05, 8, 12, Math.PI);
             const mouthMat = new THREE.MeshBasicMaterial({ color: 0x050510 });
             const mouth = new THREE.Mesh(mouthGeo, mouthMat);
             mouth.position.set(0, 1.05, 0.82);
-            mouth.rotation.x = isScaryPhase ? 0 : Math.PI; // Scarier mouth frown
+            mouth.rotation.x = isScaryPhase ? 0 : Math.PI;
             ghoulGroup.add(mouth);
 
-            // Arms
             const armGeo = new THREE.SphereGeometry(0.25, 12, 12);
             armGeo.scale(0.8, 1.8, 0.8);
             const leftArm = new THREE.Mesh(armGeo, bodyMat);
@@ -751,7 +839,6 @@
             rightArm.rotation.z = -Math.PI / 6;
             ghoulGroup.add(rightArm);
 
-            // Feet
             const footGeo = new THREE.SphereGeometry(0.25, 10, 10);
             const leftFoot = new THREE.Mesh(footGeo, bodyMat);
             leftFoot.position.set(-0.35, 0.25, 0);
@@ -761,7 +848,6 @@
             rightFoot.position.set(0.35, 0.25, 0);
             ghoulGroup.add(rightFoot);
 
-            // Spawn Location
             const spawnX = (Math.random() - 0.5) * (CORRIDOR_WIDTH - 3.5);
             const spawnZ = -CORRIDOR_LENGTH + 8;
             ghoulGroup.position.set(spawnX, 0, spawnZ);
@@ -786,10 +872,8 @@
         function castSpell() {
             if (!isGameActive || isReloading) return;
 
-            // Check Bullets/Ammo
             if (ammo <= 0) {
                 sfx.playWrong();
-                // Flash HUD reload prompt
                 const prompt = document.getElementById('reload-prompt');
                 prompt.classList.add('scale-125', 'text-amber-400');
                 setTimeout(() => prompt.classList.remove('scale-125', 'text-amber-400'), 200);
@@ -826,8 +910,9 @@
             const bubble = new THREE.Mesh(bubbleGeo, bubbleMat);
             spellGroup.add(bubble);
 
-            const pLight = new THREE.PointLight(0x38bdf8, 2, 8);
-            spellGroup.add(pLight);
+            // No per-spell PointLight: adding/removing lights forces shader
+            // recompilation in three.js and causes a hitch on every shot.
+            // The emissive bubble gives the glow instead.
 
             const dir = new THREE.Vector3(0, 0, -1);
             dir.applyQuaternion(camera.quaternion);
@@ -869,7 +954,6 @@
             document.getElementById('start-btn').addEventListener('click', startGame);
             document.getElementById('restart-btn').addEventListener('click', restartGame);
 
-            // Mouse Look Controls
             window.addEventListener('mousemove', (e) => {
                 if (!isGameActive || isReloading) return;
 
@@ -886,14 +970,12 @@
                 targetRotationX = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, targetRotationX));
             });
 
-            // Tap / Click shoot logic
             window.addEventListener('mousedown', (e) => {
                 if (isGameActive && !isReloading && e.button === 0) {
                     castSpell();
                 }
             });
 
-            // Keyboard Shortcuts (Enter / Spacebar for Reload toggle)
             window.addEventListener('keydown', (e) => {
                 if (!isGameActive) return;
 
@@ -930,8 +1012,11 @@
             wave = 1;
             ghoulsSpawnedInWave = 0;
             totalGhoulsInWave = GHOULS_PER_WAVE;
+            spawnTimer = 0;
             isReloading = false;
             timeDilation = 1.0;
+            targetRotationX = 0;
+            targetRotationY = 0;
 
             document.getElementById('reload-modal').classList.add('hidden');
 
@@ -982,32 +1067,37 @@
         }
 
         /* -------------------------------------------------------------------------- */
-        /* GAME LOOP                                                                  */
+        /* GAME LOOP (frame-rate independent)                                         */
         /* -------------------------------------------------------------------------- */
         function animate(time) {
             requestAnimationFrame(animate);
 
-            // Apply Dilation (Slow motion during translucent piano reload activity)
-            const delta = 0.016 * timeDilation;
+            // Real elapsed seconds, clamped so tab-switching doesn't cause huge jumps
+            if (lastFrameTime === null) lastFrameTime = time;
+            const dtSec = Math.min((time - lastFrameTime) / 1000, 0.1);
+            lastFrameTime = time;
 
-            // Camera Aiming Smoothing
-            camera.rotation.y += (targetRotationY - camera.rotation.y) * 0.1;
-            camera.rotation.x += (targetRotationX - camera.rotation.x) * 0.1;
+            // frameScale = 1 at 60fps, so the original per-frame tuning still applies
+            const frameScale = dtSec * 60;
+            const slow = timeDilation;                 // gameplay slow-motion factor
+            const delta = dtSec * slow;                // seconds, slow-mo applied
+            const smooth = 1 - Math.pow(0.9, frameScale);
 
-            // Wand Idle Animation
+            camera.rotation.y += (targetRotationY - camera.rotation.y) * smooth;
+            camera.rotation.x += (targetRotationX - camera.rotation.x) * smooth;
+
             if (wandGroup) {
-                wandGroup.position.z += (-0.7 - wandGroup.position.z) * 0.1;
-                wandGroup.rotation.x += (0 - wandGroup.rotation.x) * 0.1;
+                wandGroup.position.z += (-0.7 - wandGroup.position.z) * smooth;
+                wandGroup.rotation.x += (0 - wandGroup.rotation.x) * smooth;
                 wandGroup.position.y = -0.45 + Math.sin(time * 0.003) * 0.02;
             }
 
-            // Torches flickering
             torchLights.forEach(t => {
                 t.light.intensity = t.baseIntensity + Math.sin(time * 0.01 + t.seed) * 0.25;
             });
 
             if (isGameActive) {
-                // Wave Spawning (15 ghosts per wave)
+                // Wave spawning
                 spawnTimer += delta;
                 if (spawnTimer > 1.4 && ghoulsSpawnedInWave < totalGhoulsInWave) {
                     createCuteGhoul();
@@ -1015,10 +1105,11 @@
                     spawnTimer = 0;
                 }
 
-                // Check Wave Progression (6 Waves total)
+                // Wave progression
                 if (ghoulsSpawnedInWave >= totalGhoulsInWave && ghouls.length === 0) {
                     if (wave >= TOTAL_WAVES) {
                         triggerWinScreen();
+                        renderer.render(scene, camera);
                         return;
                     } else {
                         wave++;
@@ -1028,11 +1119,12 @@
                     }
                 }
 
-                // Projectiles Update
+                // Projectiles
+                const projSlow = slow < 1.0 ? 0.3 : 1.0;
                 for (let i = spellProjectiles.length - 1; i >= 0; i--) {
                     const sp = spellProjectiles[i];
-                    sp.mesh.position.addScaledVector(sp.direction, sp.speed * (timeDilation < 1.0 ? 0.3 : 1.0));
-                    sp.life += 0.016;
+                    sp.mesh.position.addScaledVector(sp.direction, sp.speed * projSlow * frameScale);
+                    sp.life += dtSec;
 
                     let hit = false;
                     for (let j = ghouls.length - 1; j >= 0; j--) {
@@ -1047,7 +1139,6 @@
                             sfx.playGhoulHit();
                             createSparkles(sp.mesh.position, ghoul.isScary ? 0xef4444 : 0x38bdf8);
 
-                            // Defeated logic
                             if (ghoul.health <= 0) {
                                 createSparkles(ghoul.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0)), ghoul.isScary ? 0xef4444 : 0xa855f7);
                                 scene.remove(ghoul.mesh);
@@ -1065,14 +1156,12 @@
                     }
                 }
 
-                // Ghouls Update (1.5x Speed & Motion)
+                // Ghouls
                 for (let i = ghouls.length - 1; i >= 0; i--) {
                     const g = ghouls[i];
 
-                    // Movement forward (1.5x faster speed, scaled by slow-mo timeDilation during reload)
-                    g.mesh.position.z += g.speed * timeDilation;
+                    g.mesh.position.z += g.speed * frameScale * slow;
 
-                    // Wobbly Walking Animation
                     const animTime = (time * 0.008 + g.animOffset);
                     g.mesh.position.y = Math.sin(animTime * 2) * 0.22;
                     g.mesh.rotation.z = Math.sin(animTime) * 0.12;
@@ -1083,15 +1172,13 @@
                     g.leftFoot.position.z = Math.sin(animTime * 3) * 0.22;
                     g.rightFoot.position.z = -Math.sin(animTime * 3) * 0.22;
 
-                    // Hit recoil scale
                     if (g.hitTimer > 0) {
-                        g.hitTimer -= delta;
+                        g.hitTimer -= dtSec;
                         g.mesh.scale.set(1.25, 0.75, 1.25);
                     } else {
                         g.mesh.scale.set(1, 1, 1);
                     }
 
-                    // Damage Player when ghoul reaches camera
                     if (g.mesh.position.z >= camera.position.z - 1.5) {
                         sfx.playDamage();
                         health -= g.isScary ? 22 : 15;
@@ -1103,16 +1190,18 @@
 
                         if (health <= 0) {
                             gameOver();
+                            break;
                         }
                     }
                 }
 
-                // Particles Update
+                // Particles (respect slow-motion)
                 for (let i = particles.length - 1; i >= 0; i--) {
                     const p = particles[i];
-                    p.mesh.position.add(p.vel);
-                    p.life -= 0.04;
-                    p.mesh.scale.multiplyScalar(0.92);
+                    const ps = frameScale * (slow < 1.0 ? 0.3 : 1.0);
+                    p.mesh.position.addScaledVector(p.vel, ps);
+                    p.life -= 0.04 * ps;
+                    p.mesh.scale.multiplyScalar(Math.pow(0.92, ps));
 
                     if (p.life <= 0) {
                         scene.remove(p.mesh);
