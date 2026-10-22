@@ -344,6 +344,7 @@
         let spellProjectiles = [];
         let particles = [];
         let torchLights = [];
+        let spellLights = [];
 
         let isGameActive = false;
         let isReloading = false;
@@ -544,6 +545,11 @@
 
             const ambient = new THREE.AmbientLight(0x3b0764, 0.4);
             scene.add(ambient);
+            for (let i = 0; i < 3; i++) {
+                const l = new THREE.PointLight(0x38bdf8, 0, 8); // starts switched off
+                scene.add(l);
+                spellLights.push(l);
+            }
 
             window.addEventListener('resize', onWindowResize);
             requestAnimationFrame(animate);
@@ -1093,6 +1099,15 @@
                 if (ghoulsSpawnedInWave >= totalGhoulsInWave && ghouls.length === 0) {
                     if (wave >= TOTAL_WAVES) {
                         triggerWinScreen();
+                        spellLights.forEach((l, i) => {
+                            const sp = spellProjectiles[i];
+                            if (sp) {
+                                l.position.copy(sp.mesh.position);
+                                l.intensity = 2;
+                            } else {
+                                l.intensity = 0;
+                            }
+                        });
                         renderer.render(scene, camera);
                         return;
                     } else {
