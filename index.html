@@ -738,7 +738,7 @@
                 mainColor = 0x1f1135;
                 eyeColor = 0xef4444;
                 requiredHits = 2;
-                baseSpeed = (0.0825 + (wave - 3) * 0.01) / 3; // 2/3 slower
+                baseSpeed = (0.0825 + (wave - 3) * 0.01) ; 
             } else {
                 const colors = [
                     { main: 0x9333ea, eye: 0x22d3ee },
@@ -750,7 +750,7 @@
                 mainColor = theme.main;
                 eyeColor = theme.eye;
                 requiredHits = 1;
-                baseSpeed = (0.0825 + wave * 0.008) / 3; // 2/3 slower
+                baseSpeed = (0.0825 + wave * 0.008) ; 
             }
 
             const bodyGeo = new THREE.SphereGeometry(0.9, 16, 16);
