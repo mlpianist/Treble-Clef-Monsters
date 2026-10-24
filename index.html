@@ -303,6 +303,22 @@
 
         const sfx = new SoundFX();
 
+        /* ---------------- BACKGROUND MUSIC ---------------- */
+        const bgMusic = new Audio('Monsters.mp3');   // <- MP3 file in the same folder as this HTML
+        bgMusic.loop = true;
+        bgMusic.volume = 0.5;                     // 0.0 to 1.0
+
+        function startMusic() {
+            bgMusic.currentTime = 0;
+            const p = bgMusic.play();
+            if (p && p.catch) p.catch(err => console.warn('Music could not play:', err));
+        }
+
+        function stopMusic() {
+            bgMusic.pause();
+            bgMusic.currentTime = 0;
+        }
+
         /* ---------------- GAME CONFIG & STATE ---------------- */
         const CORRIDOR_LENGTH = 70;
         const CORRIDOR_WIDTH = 12;
@@ -1141,6 +1157,7 @@
 
         function startGame() {
             sfx.init();
+            startMusic();
             document.getElementById('start-overlay').classList.add('opacity-0', 'pointer-events-none');
             setTimeout(() => {
                 document.getElementById('start-overlay').classList.add('hidden');
@@ -1152,6 +1169,7 @@
         }
 
         function restartGame() {
+            startMusic();
             document.getElementById('game-over-overlay').classList.add('hidden');
             document.body.requestPointerLock?.();
             isGameActive = true;
@@ -1196,6 +1214,7 @@
         }
 
         function triggerWinScreen() {
+            stopMusic();
             isGameActive = false;
             document.exitPointerLock?.();
             document.getElementById('reload-modal').classList.add('hidden');
@@ -1213,6 +1232,7 @@
         }
 
         function gameOver() {
+            stopMusic();
             isGameActive = false;
             document.exitPointerLock?.();
             document.getElementById('reload-modal').classList.add('hidden');
