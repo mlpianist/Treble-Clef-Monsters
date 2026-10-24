@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Treble Clef Monsters</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://unpkg.com/vexflow@4.2.3/build/cjs/vexflow.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.3/build/cjs/vexflow.js"></script>
     <style>
         body {
             margin: 0;
@@ -89,16 +89,13 @@
 </head>
 <body class="relative w-screen h-screen">
 
-    <!-- 3D Canvas Container -->
     <div id="game-container" class="w-full h-full"></div>
 
-    <!-- FPS Reticle Crosshair -->
     <div id="crosshair" class="w-8 h-8 flex items-center justify-center transition-transform duration-75 z-10">
         <div class="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div>
         <div class="absolute w-6 h-6 border border-purple-400/50 rounded-full animate-ping opacity-30"></div>
     </div>
 
-    <!-- HUD Overlay -->
     <div id="hud" class="absolute top-0 left-0 w-full p-4 md:p-6 flex justify-between items-start pointer-events-none z-10">
         <div class="glass-panel rounded-2xl p-3 md:p-4 flex items-center gap-3 w-56 md:w-72">
             <i class="fa-solid fa-heart-pulse text-2xl text-rose-400 animate-pulse"></i>
@@ -174,7 +171,7 @@
             <p class="text-purple-200 text-sm mb-6 leading-relaxed">
                 Survive <strong>6 waves</strong> of monsters! <br>
                 Waves 1–3: Cute Ghouls | Waves 4–5: Shadow Ghouls <br>
-                <strong>Wave 6: Bizarre Walking & Floating Monsters!</strong>
+                <strong>Wave 6: Bizarre Walking &amp; Floating Monsters!</strong>
             </p>
 
             <div class="bg-purple-950/60 p-4 rounded-xl mb-6 text-left text-xs md:text-sm text-purple-200 space-y-2 border border-purple-800/40">
@@ -216,11 +213,8 @@
         </div>
     </div>
 
-    <!-- MAIN GAME SCRIPT -->
     <script>
-        /* -------------------------------------------------------------------------- */
-        /* WEB AUDIO API SYNTHESIZER                                                  */
-        /* -------------------------------------------------------------------------- */
+        /* ---------------- WEB AUDIO SYNTH ---------------- */
         class SoundFX {
             constructor() { this.ctx = null; }
 
@@ -276,27 +270,6 @@
                 osc.stop(this.ctx.currentTime + 0.22);
             }
 
-            playCorrect() {
-                if (!this.ctx) return;
-                const now = this.ctx.currentTime;
-                const osc1 = this.ctx.createOscillator();
-                const osc2 = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc1.type = 'sine';
-                osc2.type = 'sine';
-                osc1.frequency.setValueAtTime(523.25, now);
-                osc2.frequency.setValueAtTime(659.25, now + 0.08);
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-                osc1.connect(gain);
-                osc2.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc1.start(now);
-                osc2.start(now + 0.08);
-                osc1.stop(now + 0.35);
-                osc2.stop(now + 0.35);
-            }
-
             playWrong() {
                 if (!this.ctx) return;
                 const osc = this.ctx.createOscillator();
@@ -330,17 +303,26 @@
 
         const sfx = new SoundFX();
 
-        /* -------------------------------------------------------------------------- */
-        /* GAME CONFIG & STATE                                                        */
-        /* -------------------------------------------------------------------------- */
+        /* ---------------- GAME CONFIG & STATE ---------------- */
         const CORRIDOR_LENGTH = 70;
         const CORRIDOR_WIDTH = 12;
         const CORRIDOR_HEIGHT = 10;
         const TOTAL_WAVES = 6;
         const GHOULS_PER_WAVE = 15;
 
+        const WAND_REST_ANGLE = 2 * Math.PI / 3;  // resting pitch: tip 30° above horizontal (10 o'clock)
+        const WAND_REST = { x: 0.35, y: -0.4, z: -0.5 };  // where the player's "hand" holds the wand
+        const WAND_DIP_ANGLE = Math.PI / 3;       // dip on shot: 10 o'clock -> 8 o'clock
+        const WAND_DIP_FORWARD = 0.12;            // how far the wand pushes forward during the dip
+        const WAND_DIP_TIME = 0.07;               // fast dip
+        const WAND_RETURN_TIME = 0.4;             // slower return
+        const WAND_GLOW_TIME = 0.75;          // seconds the wand tip glows after a shot
+        const SPELL_GLOW_COLOR = 0x38bdf8;   // matches the spell's cyan core and light
+
         let scene, camera, renderer;
-        let wandGroup, wandTipPoint;
+        let wandGroup, wandTipPoint, wandTipMat;
+        let wandGlowTimer = 0;
+        let wandRecoil = 0, wandRecoilFrom = 0, wandRecoilT = Infinity;
         let ghouls = [];
         let spellProjectiles = [];
         let particles = [];
@@ -363,9 +345,7 @@
         let targetRotationX = 0, targetRotationY = 0;
         let lastFrameTime = null;
 
-        /* -------------------------------------------------------------------------- */
-        /* PIANO & VEXFLOW TREBLE CLEF RELOAD SYSTEM                                  */
-        /* -------------------------------------------------------------------------- */
+        /* ---------------- PIANO & VEXFLOW RELOAD ---------------- */
         const TREBLE_NOTES = ['E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F5'];
 
         const CHROMATIC_KEYBOARD = [
@@ -478,12 +458,12 @@
         function handlePianoKeyClick(clickedNote) {
             if (!isReloading) return;
 
+            // Piano key sound only (no extra chime on correct answers)
             sfx.playPianoPitch(noteToFreq(clickedNote));
 
             const card = document.getElementById('reload-card');
 
             if (clickedNote === currentTargetNote) {
-                sfx.playCorrect();
                 ammo += 2;
                 updateHUD();
 
@@ -510,7 +490,7 @@
             const modal = document.getElementById('reload-modal');
 
             if (isReloading) {
-                timeDilation = 0.23; // Faster enemy speed during note-reading mode
+                timeDilation = 0.23;
                 document.exitPointerLock?.();
                 modal.classList.remove('hidden');
                 pickNextNote();
@@ -521,9 +501,7 @@
             }
         }
 
-        /* -------------------------------------------------------------------------- */
-        /* THREE.JS SCENE SETUP                                                       */
-        /* -------------------------------------------------------------------------- */
+        /* ---------------- THREE.JS SCENE SETUP ---------------- */
         function init() {
             renderKeyboard();
             setupControls();
@@ -552,9 +530,7 @@
             requestAnimationFrame(animate);
         }
 
-        /* -------------------------------------------------------------------------- */
-        /* PROCEDURAL CORRIDOR BUILDER                                                */
-        /* -------------------------------------------------------------------------- */
+        /* ---------------- CORRIDOR ---------------- */
         function buildCorridor() {
             const stoneTexture = generateStoneTexture();
             stoneTexture.repeat.set(4, 20);
@@ -679,35 +655,62 @@
             return texture;
         }
 
-        /* -------------------------------------------------------------------------- */
-        /* MAGIC WAND CREATION (ORB REMOVED, TIP MARKER RETAINED)                    */
-        /* -------------------------------------------------------------------------- */
+        /* ---------------- MAGIC WAND (thin, tapered, glowing tip) ---------------- */
         function buildMagicWand() {
             wandGroup = new THREE.Group();
 
-            const handleGeo = new THREE.CylinderGeometry(0.025, 0.04, 0.8, 12);
-            const handleMat = new THREE.MeshStandardMaterial({
+            const WAND_LENGTH = 0.8;
+            const HANDLE_R = 0.03;      // thick end, nearest the player
+            const TIP_R = 0.01;         // thin end, pointing at the monsters
+            const TIP_FRACTION = 1 / 8; // portion of the wand that glows
+
+            const tipLen = WAND_LENGTH * TIP_FRACTION;
+            const bodyLen = WAND_LENGTH - tipLen;
+            const rJoin = HANDLE_R + (TIP_R - HANDLE_R) * (1 - TIP_FRACTION);
+
+            // Pivot sits at the handle end, so the wand rotates from the player's hand.
+            // Tip direction = (0, -cos(a), -sin(a)); a = 120° points it slightly upward.
+            const shaft = new THREE.Group();
+            shaft.rotation.x = WAND_REST_ANGLE;
+            const wandMesh = new THREE.Group();
+            wandMesh.position.y = -WAND_LENGTH / 2;
+            shaft.add(wandMesh);
+
+            const bodyMat = new THREE.MeshStandardMaterial({
                 color: 0x4a1d96,
                 roughness: 0.3,
                 metalness: 0.6
             });
-            const handle = new THREE.Mesh(handleGeo, handleMat);
-            handle.rotation.x = Math.PI / 3;
-            wandGroup.add(handle);
+            const body = new THREE.Mesh(
+                new THREE.CylinderGeometry(HANDLE_R, rJoin, bodyLen, 12),
+                bodyMat
+            );
+            body.position.y = tipLen / 2;
+            wandMesh.add(body);
 
-            // Tip reference point for firing spells (no visible floating mesh)
+            wandTipMat = bodyMat.clone();
+            wandTipMat.emissive = new THREE.Color(SPELL_GLOW_COLOR);
+            wandTipMat.emissiveIntensity = 0;
+            const tip = new THREE.Mesh(
+                new THREE.CylinderGeometry(rJoin, TIP_R, tipLen, 12),
+                wandTipMat
+            );
+            tip.position.y = -WAND_LENGTH / 2 + tipLen / 2;
+            wandMesh.add(tip);
+
+            wandGroup.add(shaft);
+
+            // Tip reference point for firing spells
             wandTipPoint = new THREE.Object3D();
-            wandTipPoint.position.set(0, 0.35, -0.22);
-            wandGroup.add(wandTipPoint);
+            wandTipPoint.position.set(0, -WAND_LENGTH, 0); // the very end of the wand
+            shaft.add(wandTipPoint);
 
-            wandGroup.position.set(0.35, -0.45, -0.7);
+            wandGroup.position.set(WAND_REST.x, WAND_REST.y, WAND_REST.z);
             camera.add(wandGroup);
             scene.add(camera);
         }
 
-        /* -------------------------------------------------------------------------- */
-        /* HUD & UI UPDATES                                                           */
-        /* -------------------------------------------------------------------------- */
+        /* ---------------- HUD ---------------- */
         function updateHUD() {
             document.getElementById('health-bar').style.width = `${Math.max(0, health)}%`;
             document.getElementById('health-text').innerText = `${Math.max(0, health)}%`;
@@ -716,11 +719,7 @@
             document.getElementById('wave-val').innerText = `${wave} / ${TOTAL_WAVES}`;
         }
 
-        /* -------------------------------------------------------------------------- */
-        /* PROCEDURAL ENEMY GENERATION                                                */
-        /* -------------------------------------------------------------------------- */
-
-        // Standard Ghouls (Waves 1 to 5)
+        /* ---------------- ENEMIES ---------------- */
         function createCuteGhoul() {
             const ghoulGroup = new THREE.Group();
             const isScaryPhase = wave === 4 || wave === 5;
@@ -731,7 +730,7 @@
                 mainColor = 0x1f1135;
                 eyeColor = 0xef4444;
                 requiredHits = 2;
-                baseSpeed = 0.0825 + (wave - 3) * 0.01; 
+                baseSpeed = 0.0825 + (wave - 3) * 0.01;
             } else {
                 const colors = [
                     { main: 0x9333ea, eye: 0x22d3ee },
@@ -743,7 +742,7 @@
                 mainColor = theme.main;
                 eyeColor = theme.eye;
                 requiredHits = 1;
-                baseSpeed = 0.0825 + wave * 0.008; 
+                baseSpeed = 0.0825 + wave * 0.008;
             }
 
             const bodyGeo = new THREE.SphereGeometry(0.9, 16, 16);
@@ -844,18 +843,18 @@
             ghouls.push(ghoulObj);
         }
 
-        // Wave 6 Bizarre Walking & Floating Monsters
+        // Wave 6 bizarre walking & floating monsters
         function createWave6BizarreMonster(specifiedType) {
-            const monsterType = (specifiedType !== undefined) ? specifiedType : Math.floor(Math.random() * 4); 
+            const monsterType = (specifiedType !== undefined) ? specifiedType : Math.floor(Math.random() * 4);
             const group = new THREE.Group();
 
             let speed, health, points, hitColor, enemyKind;
             let animatedParts = {};
 
             if (monsterType === 0) {
-                // TYPE 1: Spindle Stalker (Tall, skinny, fast, twitchy limbs)
+                // Spindle Stalker: tall, skinny, fast
                 enemyKind = 'spindle';
-                speed = 0.15; // Fast speed
+                speed = 0.15;
                 health = 2;
                 points = 35;
                 hitColor = 0xa855f7;
@@ -863,13 +862,11 @@
                 const bodyMat = new THREE.MeshStandardMaterial({ color: 0x111122, roughness: 0.3, metalness: 0.8 });
                 const eyeMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
 
-                // Tall elongated torso
                 const torsoGeo = new THREE.CylinderGeometry(0.18, 0.1, 2.8, 8);
                 const torso = new THREE.Mesh(torsoGeo, bodyMat);
                 torso.position.y = 1.6;
                 group.add(torso);
 
-                // Small creepy head with single glowing eye
                 const headGeo = new THREE.SphereGeometry(0.28, 12, 12);
                 const head = new THREE.Mesh(headGeo, bodyMat);
                 head.position.set(0, 3.1, 0);
@@ -880,7 +877,6 @@
                 eye.position.set(0, 3.1, 0.22);
                 group.add(eye);
 
-                // 4 Long thin jointed walking legs touching the floor
                 const legGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.8, 6);
                 const legs = [];
                 for (let i = 0; i < 4; i++) {
@@ -893,9 +889,9 @@
                 animatedParts = { torso, head, legs };
 
             } else if (monsterType === 1) {
-                // TYPE 2: Bloat Crawler (Wide, bulky, low-slung, multi-legged grotesque, slow)
+                // Bloat Crawler: wide, bulky, slow
                 enemyKind = 'bloat';
-                speed = 0.07; // Slow lumbering speed
+                speed = 0.07;
                 health = 4;
                 points = 50;
                 hitColor = 0x84cc16;
@@ -903,14 +899,12 @@
                 const blobMat = new THREE.MeshStandardMaterial({ color: 0x1a2e05, roughness: 0.9, emissive: 0x0f2302 });
                 const eyeMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
 
-                // Bulky blob body
                 const bodyGeo = new THREE.SphereGeometry(1.2, 12, 12);
                 bodyGeo.scale(1.4, 0.7, 1.2);
                 const body = new THREE.Mesh(bodyGeo, blobMat);
                 body.position.y = 0.7;
                 group.add(body);
 
-                // Multiple scattered eyes on the body
                 const eyeGeo = new THREE.SphereGeometry(0.1, 8, 8);
                 for (let i = 0; i < 6; i++) {
                     const e = new THREE.Mesh(eyeGeo, eyeMat);
@@ -919,7 +913,6 @@
                     group.add(e);
                 }
 
-                // 6 stubby crawling legs touching the floor
                 const legGeo = new THREE.CylinderGeometry(0.1, 0.06, 0.8, 6);
                 const legs = [];
                 for (let i = 0; i < 6; i++) {
@@ -933,9 +926,9 @@
                 animatedParts = { body, legs };
 
             } else if (monsterType === 2) {
-                // TYPE 3: Jittering Specter/Crawler (Medium-sized, bizarre posture, medium-fast, violently jittering)
+                // Jittering Specter: medium-fast, violent jitter
                 enemyKind = 'jitterer';
-                speed = 0.11; // Medium-fast speed
+                speed = 0.11;
                 health = 2;
                 points = 40;
                 hitColor = 0xef4444;
@@ -943,20 +936,17 @@
                 const bodyMat = new THREE.MeshStandardMaterial({ color: 0x31081f, roughness: 0.4, emissive: 0x210010 });
                 const mouthMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
 
-                // Humped bizarre torso
                 const bodyGeo = new THREE.DodecahedronGeometry(0.7, 1);
                 bodyGeo.scale(0.8, 1.3, 0.8);
                 const body = new THREE.Mesh(bodyGeo, bodyMat);
                 body.position.y = 1.1;
                 group.add(body);
 
-                // Creepy wide maw
                 const mouthGeo = new THREE.BoxGeometry(0.6, 0.2, 0.4);
                 const mouth = new THREE.Mesh(mouthGeo, mouthMat);
                 mouth.position.set(0, 1.2, 0.5);
                 group.add(mouth);
 
-                // Two long twitching walking legs
                 const legGeo = new THREE.CylinderGeometry(0.08, 0.05, 1.3, 6);
                 const leftLeg = new THREE.Mesh(legGeo, bodyMat);
                 leftLeg.position.set(-0.4, 0.65, 0);
@@ -969,9 +959,9 @@
                 animatedParts = { body, mouth, legs: [leftLeg, rightLeg] };
 
             } else {
-                // TYPE 4: Translucent Ceiling Floating Face
+                // Translucent ceiling floating face
                 enemyKind = 'ceiling_float';
-                speed = 0.045; // Slow float speed
+                speed = 0.045;
                 health = 1;
                 points = 30;
                 hitColor = 0x38bdf8;
@@ -985,12 +975,10 @@
                     emissiveIntensity: 0.6
                 });
 
-                // Translucent head sphere
                 const headGeo = new THREE.SphereGeometry(1.1, 20, 20);
                 const head = new THREE.Mesh(headGeo, faceMat);
                 group.add(head);
 
-                // Small eyes
                 const eyeGeo = new THREE.SphereGeometry(0.09, 10, 10);
                 const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0369a1 });
 
@@ -1002,7 +990,6 @@
                 rightEye.position.set(0.25, 0.2, 0.95);
                 group.add(rightEye);
 
-                // Huge wide grin
                 const grinGeo = new THREE.TorusGeometry(0.55, 0.08, 8, 20, Math.PI);
                 const grinMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
                 const grin = new THREE.Mesh(grinGeo, grinMat);
@@ -1035,9 +1022,7 @@
             ghouls.push(monsterObj);
         }
 
-        /* -------------------------------------------------------------------------- */
-        /* SPELL SHOOTING & DYNAMIC LIGHTING & PARTICLES                              */
-        /* -------------------------------------------------------------------------- */
+        /* ---------------- SPELLS & PARTICLES ---------------- */
         function castSpell() {
             if (!isGameActive || isReloading) return;
 
@@ -1052,9 +1037,10 @@
             ammo--;
             updateHUD();
             sfx.playZap();
+            wandGlowTimer = WAND_GLOW_TIME;
 
-            wandGroup.position.z = -0.5;
-            wandGroup.rotation.x = -0.2;
+            wandRecoilFrom = wandRecoil;
+            wandRecoilT = 0;
 
             const spellGroup = new THREE.Group();
 
@@ -1063,7 +1049,7 @@
             spellGroup.position.copy(tipWorldPos);
 
             const orbGeo = new THREE.SphereGeometry(0.28, 12, 12);
-            const orbMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+            const orbMat = new THREE.MeshBasicMaterial({ color: SPELL_GLOW_COLOR });
             const orb = new THREE.Mesh(orbGeo, orbMat);
             spellGroup.add(orb);
 
@@ -1079,8 +1065,7 @@
             const bubble = new THREE.Mesh(bubbleGeo, bubbleMat);
             spellGroup.add(bubble);
 
-            // Dynamic Point Light attached to the spell projectile casting light onto floor/walls/monsters
-            const dynamicSpellLight = new THREE.PointLight(0x38bdf8, 4.0, 18);
+            const dynamicSpellLight = new THREE.PointLight(SPELL_GLOW_COLOR, 4.0, 18);
             spellGroup.add(dynamicSpellLight);
 
             const dir = new THREE.Vector3(0, 0, -1);
@@ -1117,9 +1102,7 @@
             }
         }
 
-        /* -------------------------------------------------------------------------- */
-        /* INPUT & CONTROLS                                                           */
-        /* -------------------------------------------------------------------------- */
+        /* ---------------- INPUT & CONTROLS ---------------- */
         function setupControls() {
             document.getElementById('start-btn').addEventListener('click', startGame);
             document.getElementById('restart-btn').addEventListener('click', restartGame);
@@ -1187,6 +1170,11 @@
             timeDilation = 1.0;
             targetRotationX = 0;
             targetRotationY = 0;
+            wandGlowTimer = 0;
+            wandRecoil = 0;
+            wandRecoilFrom = 0;
+            wandRecoilT = Infinity;
+            wave6SpawnQueue = [];
 
             document.getElementById('reload-modal').classList.add('hidden');
 
@@ -1200,13 +1188,22 @@
             updateHUD();
         }
 
+        // Swaps the end-screen icon (re-created so the Font Awesome SVG loader picks it up)
+        function setEndIcon(wrapClass, iconClass) {
+            const wrap = document.getElementById('end-icon-wrap');
+            wrap.className = wrapClass;
+            wrap.innerHTML = `<i id="end-icon" class="${iconClass}"></i>`;
+        }
+
         function triggerWinScreen() {
             isGameActive = false;
             document.exitPointerLock?.();
             document.getElementById('reload-modal').classList.add('hidden');
 
-            document.getElementById('end-icon-wrap').className = 'w-20 h-20 mx-auto mb-4 rounded-full bg-amber-900/30 flex items-center justify-center border border-amber-400/40 shadow-[0_0_20px_rgba(245,158,11,0.5)]';
-            document.getElementById('end-icon').className = 'fa-solid fa-crown text-4xl text-amber-300 animate-bounce';
+            setEndIcon(
+                'w-20 h-20 mx-auto mb-4 rounded-full bg-amber-900/30 flex items-center justify-center border border-amber-400/40 shadow-[0_0_20px_rgba(245,158,11,0.5)]',
+                'fa-solid fa-crown text-4xl text-amber-300 animate-bounce'
+            );
             document.getElementById('end-title').innerText = 'CORRIDOR CONQUERED!';
             document.getElementById('end-desc').innerText = 'Congratulations! You survived all 6 waves, defeated the bizarre monsters, and banished the forces of darkness!';
             document.getElementById('final-score').innerText = score;
@@ -1220,8 +1217,10 @@
             document.exitPointerLock?.();
             document.getElementById('reload-modal').classList.add('hidden');
 
-            document.getElementById('end-icon-wrap').className = 'w-20 h-20 mx-auto mb-4 rounded-full bg-rose-900/30 flex items-center justify-center border border-rose-400/30';
-            document.getElementById('end-icon').className = 'fa-solid fa-skull text-4xl text-rose-400';
+            setEndIcon(
+                'w-20 h-20 mx-auto mb-4 rounded-full bg-rose-900/30 flex items-center justify-center border border-rose-400/30',
+                'fa-solid fa-skull text-4xl text-rose-400'
+            );
             document.getElementById('end-title').innerText = 'GAME OVER';
             document.getElementById('end-desc').innerText = 'The monsters reached you! Re-charge your magic wand and try again.';
             document.getElementById('final-score').innerText = score;
@@ -1236,9 +1235,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        /* -------------------------------------------------------------------------- */
-        /* GAME LOOP (frame-rate independent)                                         */
-        /* -------------------------------------------------------------------------- */
+        /* ---------------- GAME LOOP (frame-rate independent) ---------------- */
         function animate(time) {
             requestAnimationFrame(animate);
 
@@ -1247,17 +1244,38 @@
             lastFrameTime = time;
 
             const frameScale = dtSec * 60;
-            const slow = timeDilation;                 
-            const delta = dtSec * slow;                
+            const slow = timeDilation;
+            const delta = dtSec * slow;
             const smooth = 1 - Math.pow(0.9, frameScale);
 
             camera.rotation.y += (targetRotationY - camera.rotation.y) * smooth;
             camera.rotation.x += (targetRotationX - camera.rotation.x) * smooth;
 
             if (wandGroup) {
-                wandGroup.position.z += (-0.7 - wandGroup.position.z) * smooth;
-                wandGroup.rotation.x += (0 - wandGroup.rotation.x) * smooth;
-                wandGroup.position.y = -0.45 + Math.sin(time * 0.003) * 0.02;
+                // Shot recoil: quick dip down + forward, then a slower ease back to rest
+                if (wandRecoilT < WAND_DIP_TIME + WAND_RETURN_TIME) {
+                    wandRecoilT += dtSec;
+                    if (wandRecoilT < WAND_DIP_TIME) {
+                        const k = wandRecoilT / WAND_DIP_TIME;
+                        wandRecoil = wandRecoilFrom + (1 - wandRecoilFrom) * (1 - (1 - k) * (1 - k));
+                    } else {
+                        const k = Math.min(1, (wandRecoilT - WAND_DIP_TIME) / WAND_RETURN_TIME);
+                        wandRecoil = 1 - k * k * (3 - 2 * k);
+                    }
+                } else {
+                    wandRecoil = 0;
+                }
+                wandGroup.position.z = WAND_REST.z - WAND_DIP_FORWARD * wandRecoil;
+                wandGroup.rotation.x = -WAND_DIP_ANGLE * wandRecoil;
+                wandGroup.position.y = WAND_REST.y + Math.sin(time * 0.003) * 0.02;
+            }
+
+            // Wand tip glow after each shot: starts at full brightness and fades out gradually over WAND_GLOW_TIME
+            if (wandTipMat) {
+                wandGlowTimer = Math.max(0, wandGlowTimer - dtSec);
+                wandTipMat.emissiveIntensity = wandGlowTimer > 0
+                    ? 2.5 * (wandGlowTimer / WAND_GLOW_TIME)
+                    : 0;
             }
 
             torchLights.forEach(t => {
@@ -1265,14 +1283,13 @@
             });
 
             if (isGameActive) {
-                // Wave spawning logic
+                // Wave spawning
                 spawnTimer += delta;
                 if (spawnTimer > 1.3 && ghoulsSpawnedInWave < totalGhoulsInWave) {
                     if (wave === 6) {
                         if (wave6SpawnQueue.length === 0) {
                             totalGhoulsInWave = 24;
                             let types = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3];
-                            // Shuffle types
                             for (let k = types.length - 1; k > 0; k--) {
                                 const j = Math.floor(Math.random() * (k + 1));
                                 [types[k], types[j]] = [types[j], types[k]];
@@ -1288,7 +1305,7 @@
                     spawnTimer = 0;
                 }
 
-                // Wave progression logic
+                // Wave progression
                 if (ghoulsSpawnedInWave >= totalGhoulsInWave && ghouls.length === 0) {
                     if (wave >= TOTAL_WAVES) {
                         triggerWinScreen();
@@ -1303,14 +1320,13 @@
                     }
                 }
 
-                // Projectiles and dynamic light movement
+                // Projectiles
                 const projSlow = slow < 1.0 ? 0.45 : 1.0;
                 for (let i = spellProjectiles.length - 1; i >= 0; i--) {
                     const sp = spellProjectiles[i];
                     sp.mesh.position.addScaledVector(sp.direction, sp.speed * projSlow * frameScale);
                     sp.life += dtSec;
 
-                    // Light pulse intensity decay over distance
                     sp.light.intensity = 3.5 + Math.sin(time * 0.02) * 1.0;
 
                     let hit = false;
@@ -1346,7 +1362,7 @@
                     }
                 }
 
-                // Update Enemies (Floating ghosts vs Bizarre Walking Monsters)
+                // Enemies
                 for (let i = ghouls.length - 1; i >= 0; i--) {
                     const enemy = ghouls[i];
 
@@ -1356,15 +1372,12 @@
 
                     if (enemy.type === 'walking_monster') {
                         if (enemy.kind === 'ceiling_float') {
-                            // Ceiling Floating Face movement: slow floating close to the ceiling
                             enemy.mesh.position.y = (CORRIDOR_HEIGHT - 1.6) + Math.sin(animTime * 1.5) * 0.25;
                             enemy.mesh.rotation.z = Math.sin(animTime) * 0.08;
                         } else {
-                            // Walking Monster animations + Erratic shaking/twitching
                             enemy.jitterTimer += dtSec;
                             const isTwitching = Math.sin(enemy.jitterTimer * 12 + enemy.animOffset) > 0.65;
 
-                            // Uncanny jitter / snap offset
                             let twitchX = 0, twitchRotY = 0, twitchRotZ = 0;
                             if (isTwitching) {
                                 twitchX = (Math.random() - 0.5) * 0.25;
@@ -1377,7 +1390,6 @@
                             enemy.mesh.rotation.z = twitchRotZ;
 
                             if (enemy.kind === 'spindle') {
-                                // Spindle Stalker leg & torso twitching
                                 const legs = enemy.parts.legs;
                                 for (let k = 0; k < legs.length; k++) {
                                     legs[k].rotation.x = Math.sin(animTime * 4 + k) * 0.4;
@@ -1386,26 +1398,22 @@
                                 enemy.parts.torso.rotation.z = Math.sin(animTime * 2) * 0.1;
                                 enemy.parts.head.rotation.x = isTwitching ? (Math.random() - 0.5) * 0.8 : 0;
                             } else if (enemy.kind === 'bloat') {
-                                // Bloat Crawler low heavy movement
                                 const legs = enemy.parts.legs;
                                 for (let k = 0; k < legs.length; k++) {
                                     legs[k].rotation.z = Math.sin(animTime * 2 + k) * 0.3;
                                 }
                                 enemy.parts.body.scale.y = 0.7 + Math.sin(animTime * 3) * 0.1;
                             } else if (enemy.kind === 'jitterer') {
-                                // Jittering Specter
                                 const legs = enemy.parts.legs;
                                 legs[0].rotation.x = Math.sin(animTime * 5) * 0.6;
                                 legs[1].rotation.x = -Math.sin(animTime * 5) * 0.6;
                                 enemy.parts.mouth.scale.y = 1.0 + Math.abs(Math.sin(animTime * 6)) * 1.5;
                             }
 
-                            // Ground contact baseline
                             enemy.mesh.position.y = 0;
                         }
 
                     } else {
-                        // Floating ghost animation
                         enemy.mesh.position.y = Math.sin(animTime * 2) * 0.22;
                         enemy.mesh.rotation.z = Math.sin(animTime) * 0.12;
 
@@ -1416,7 +1424,7 @@
                         enemy.rightFoot.position.z = -Math.sin(animTime * 3) * 0.22;
                     }
 
-                    // Hit recoil animation
+                    // Hit recoil
                     if (enemy.hitTimer > 0) {
                         enemy.hitTimer -= dtSec;
                         enemy.mesh.scale.set(1.25, 0.75, 1.25);
@@ -1424,7 +1432,7 @@
                         enemy.mesh.scale.set(1, 1, 1);
                     }
 
-                    // Player damage when reaching camera
+                    // Player damage
                     if (enemy.mesh.position.z >= camera.position.z - 1.5) {
                         sfx.playDamage();
                         health -= enemy.type === 'walking_monster' ? 25 : (enemy.isScary ? 22 : 15);
@@ -1441,7 +1449,7 @@
                     }
                 }
 
-                // Particles (respect slow-motion)
+                // Particles
                 for (let i = particles.length - 1; i >= 0; i--) {
                     const p = particles[i];
                     const ps = frameScale * (slow < 1.0 ? 0.45 : 1.0);
