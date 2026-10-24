@@ -1455,7 +1455,7 @@
                     // Player damage
                     if (enemy.mesh.position.z >= camera.position.z - 1.5) {
                         sfx.playDamage();
-                        health -= enemy.type === 'walking_monster' ? 25 : (enemy.isScary ? 22 : 15);
+                        health -= enemy.type === 'walking_monster' ? 20 : (enemy.isScary ? 15 : 10);
                         updateHUD();
 
                         createSparkles(enemy.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xf59e0b);
