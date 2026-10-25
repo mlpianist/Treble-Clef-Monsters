@@ -85,6 +85,18 @@
             0% { background-color: rgba(239, 68, 68, 0.4); }
             100% { background-color: transparent; }
         }
+        /* Death sequence layers */
+        #death-red, #death-black {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            opacity: 0;
+            pointer-events: none;
+        }
+        #death-red { background-color: #b91c1c; z-index: 50; }
+        #death-black { background-color: #000000; z-index: 55; }
     </style>
 </head>
 <body class="relative w-screen h-screen">
@@ -213,6 +225,17 @@
         </div>
     </div>
 
+    <!-- DEATH SEQUENCE: red fade, black fade, then "Try Again" window -->
+    <div id="death-red"></div>
+    <div id="death-black"></div>
+    <div id="death-window" class="hidden fixed inset-0 z-[60] flex items-center justify-center">
+        <div class="glass-panel px-8 py-6 rounded-2xl text-center border-rose-500/40 shadow-2xl">
+            <button id="try-again-btn" class="py-3 px-8 rounded-xl bg-gradient-to-r from-rose-600 to-purple-600 text-white font-bold text-lg hover:brightness-110 transition-all shadow-[0_0_20px_rgba(244,63,94,0.5)] active:scale-95">
+                Try Again
+            </button>
+        </div>
+    </div>
+
     <script>
         /* ---------------- WEB AUDIO SYNTH ---------------- */
         class SoundFX {
@@ -319,12 +342,30 @@
             bgMusic.currentTime = 0;
         }
 
+        /* ---------------- DEATH SOUND ---------------- */
+        const deathMusic = new Audio('Death.mp3');   // <- MP3 file in the same folder as this HTML
+        deathMusic.volume = 0.8;                     // 0.0 to 1.0
+
+        function startDeathSound() {
+            deathMusic.currentTime = 0;
+            const p = deathMusic.play();
+            if (p && p.catch) p.catch(err => console.warn('Death sound could not play:', err));
+        }
+
+        function stopDeathSound() {
+            deathMusic.pause();
+            deathMusic.currentTime = 0;
+        }
+
         /* ---------------- GAME CONFIG & STATE ---------------- */
         const CORRIDOR_LENGTH = 70;
         const CORRIDOR_WIDTH = 12;
         const CORRIDOR_HEIGHT = 10;
         const TOTAL_WAVES = 6;
         const GHOULS_PER_WAVE = 15;
+
+        const DEATH_RED_FADE_MS = 2000;    // fade to red
+        const DEATH_BLACK_FADE_MS = 1000;  // then fade to black (faster)
 
         const WAND_REST_ANGLE = 2 * Math.PI / 3;  // resting pitch: tip 30° above horizontal (10 o'clock)
         const WAND_REST = { x: 0.35, y: -0.4, z: -0.5 };  // where the player's "hand" holds the wand
@@ -348,6 +389,8 @@
 
         let isGameActive = false;
         let isReloading = false;
+        let isDead = false;
+        let deathTimers = [];
         let timeDilation = 1.0;
 
         let health = 100;
@@ -1122,6 +1165,7 @@
         function setupControls() {
             document.getElementById('start-btn').addEventListener('click', startGame);
             document.getElementById('restart-btn').addEventListener('click', restartGame);
+            document.getElementById('try-again-btn').addEventListener('click', returnToHomescreen);
 
             window.addEventListener('mousemove', (e) => {
                 if (!isGameActive || isReloading) return;
@@ -1185,6 +1229,7 @@
             totalGhoulsInWave = GHOULS_PER_WAVE;
             spawnTimer = 0;
             isReloading = false;
+            isDead = false;
             timeDilation = 1.0;
             targetRotationX = 0;
             targetRotationY = 0;
@@ -1231,22 +1276,61 @@
             document.getElementById('game-over-overlay').classList.remove('hidden');
         }
 
+        /* ---------------- DEATH SEQUENCE ---------------- */
         function gameOver() {
             stopMusic();
             isGameActive = false;
+            isDead = true;   // freezes everything (enemies, wand, torches)
             document.exitPointerLock?.();
             document.getElementById('reload-modal').classList.add('hidden');
 
-            setEndIcon(
-                'w-20 h-20 mx-auto mb-4 rounded-full bg-rose-900/30 flex items-center justify-center border border-rose-400/30',
-                'fa-solid fa-skull text-4xl text-rose-400'
-            );
-            document.getElementById('end-title').innerText = 'GAME OVER';
-            document.getElementById('end-desc').innerText = 'The monsters reached you! Re-charge your magic wand and try again.';
-            document.getElementById('final-score').innerText = score;
-            document.getElementById('final-wave').innerText = `${wave} / ${TOTAL_WAVES}`;
+            // Death sound plays at the same moment the fade begins
+            startDeathSound();
 
-            document.getElementById('game-over-overlay').classList.remove('hidden');
+            const redLayer = document.getElementById('death-red');
+            const blackLayer = document.getElementById('death-black');
+
+            // Fade the full screen to red over 2 seconds
+            redLayer.style.transition = `opacity ${DEATH_RED_FADE_MS}ms linear`;
+            redLayer.style.opacity = '1';
+            redLayer.style.pointerEvents = 'auto';
+
+            // Then fade to black over 1 second
+            deathTimers.push(setTimeout(() => {
+                blackLayer.style.transition = `opacity ${DEATH_BLACK_FADE_MS}ms linear`;
+                blackLayer.style.opacity = '1';
+                blackLayer.style.pointerEvents = 'auto';
+            }, DEATH_RED_FADE_MS));
+
+            // Then show the small "Try Again" window
+            deathTimers.push(setTimeout(() => {
+                document.getElementById('death-window').classList.remove('hidden');
+            }, DEATH_RED_FADE_MS + DEATH_BLACK_FADE_MS));
+        }
+
+        function resetDeathSequence() {
+            deathTimers.forEach(t => clearTimeout(t));
+            deathTimers = [];
+
+            ['death-red', 'death-black'].forEach(id => {
+                const el = document.getElementById(id);
+                el.style.transition = 'none';
+                el.style.opacity = '0';
+                el.style.pointerEvents = 'none';
+                void el.offsetWidth; // flush so the instant reset is applied
+                el.style.transition = '';
+            });
+
+            document.getElementById('death-window').classList.add('hidden');
+            stopDeathSound();
+        }
+
+        function returnToHomescreen() {
+            resetDeathSequence();
+            resetGameState();   // clears monsters, spells and stats; game stays inactive
+
+            const startOverlay = document.getElementById('start-overlay');
+            startOverlay.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
         }
 
         function onWindowResize() {
@@ -1262,6 +1346,12 @@
             if (lastFrameTime === null) lastFrameTime = time;
             const dtSec = Math.min((time - lastFrameTime) / 1000, 0.1);
             lastFrameTime = time;
+
+            // Game is frozen on death: just keep rendering the last frame
+            if (isDead) {
+                renderer.render(scene, camera);
+                return;
+            }
 
             const frameScale = dtSec * 60;
             const slow = timeDilation;
